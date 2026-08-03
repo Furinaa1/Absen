@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presensi PKL / Magang</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <style>
+        .signature-pad-container {
+            border: 2px dashed #6c757d;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            touch-action: none;
+        }
+        canvas#signature-pad {
+            width: 100%;
+            height: 180px;
+            border-radius: 8px;
+        }
+        #webcam-video, #webcam-preview {
+            width: 100%;
+            border-radius: 8px;
+            background-color: #212529;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0 fw-bold">Form Presensi & Perizinan PKL / Magang</h4>
+                </div>
+                <div class="card-body p-4">
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('presensi') }}" enctype="multipart/form-data" id="formPresensi">
+                        
+                        <!-- 1. NIM / NISN -->
+                        <div class="mb-3">
+                            <label for="nomor_induk" class="form-label fw-bold">NIM / NISN</label>
+                            <input type="text" class="form-control" id="nomor_induk" name="nomor_induk" placeholder="Masukkan NIM / NISN Anda" required>
+                            <small id="nama-peserta-info" class="text-success fw-bold mt-1 d-block"></small>
+                        </div>
+
+                        <!-- 2. Opsi Status Kehadiran -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Status Kehadiran</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="status" id="statusHadir" value="Hadir" checked>
+                                    <label class="form-check-label fw-bold text-success" for="statusHadir">Hadir</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="status" id="statusIzin" value="Izin">
+                                    <label class="form-check-label fw-bold text-warning" for="statusIzin">Izin</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="status" id="statusSakit" value="Sakit">
+                                    <label class="form-check-label fw-bold text-danger" for="statusSakit">Sakit</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. Form Jurnal (Tampil Jika HADIR) -->
+                        <div class="mb-3" id="section-jurnal">
+                            <label for="jurnal" class="form-label fw-bold">Jurnal Kegiatan Harian</label>
+                            <textarea class="form-control" id="jurnal" name="jurnal" rows="3" placeholder="Tuliskan ringkasan kegiatan hari ini..."></textarea>
+                        </div>
+
+                        <!-- 4. Form Alasan Izin / Sakit (Tampil Jika IZIN atau SAKIT) -->
+                        <div class="mb-3 d-none" id="section-izin">
+                            <label for="alasan_izin" class="form-label fw-bold">Alasan Izin / Sakit</label>
+                            <textarea class="form-control" id="alasan_izin" name="alasan_izin" rows="3" placeholder="Jelaskan alasan perizinan / sakit..."></textarea>
+                        </div>
+
+                        <!-- 4b. Form Unggah Surat Izin / Sakit (Tampil Jika IZIN atau SAKIT) -->
+                        <div class="mb-3 d-none" id="section-surat">
+                            <label for="surat_izin" class="form-label fw-bold">Unggah Foto Surat Izin / Surat Sakit</label>
+                            <input type="file" class="form-control" id="surat_izin" name="surat_izin" accept="image/*">
+                            <small class="text-muted">Format yang didukung: Gambar (JPG/PNG)</small>
+                        </div>
+
+                        <!-- 5. Foto Selfie (Tampil Jika HADIR) -->
+                        <div class="mb-3" id="section-kamera">
+                            <label class="form-label fw-bold">Foto Selfie Presensi</label>
+                            <div class="text-center mb-2">
+                                <video id="webcam-video" autoplay playsinline></video>
+                                <img id="webcam-preview" class="d-none" alt="Preview Selfie">
+                                <canvas id="webcam-canvas" class="d-none"></canvas>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-ambil-foto">📸 Ambil Foto Selfie</button>
+                                <button type="button" class="btn btn-sm btn-outline-warning d-none" id="btn-ulang-foto">🔄 Foto Ulang</button>
+                            </div>
+                            <input type="hidden" name="foto_base64" id="foto_base64">
+                        </div>
+
+                        <!-- 6. Tanda Tangan Digital (Wajib untuk semua status) -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tanda Tangan Digital</label>
+                            <div class="signature-pad-container p-1 text-center">
+                                <canvas id="signature-pad"></canvas>
+                            </div>
+                            <div class="mt-2 d-flex justify-content-between align-items-center">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-signature">🧹 Hapus Tanda Tangan</button>
+                                <small class="text-muted">Goreskan tanda tangan di atas</small>
+                            </div>
+                            <input type="hidden" name="ttd_base64" id="ttd_base64">
+                        </div>
+
+                        <input type="hidden" name="latitude" id="latitude">
+                        <input type="hidden" name="longitude" id="longitude">
+
+                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold mt-3">🚀 Kirim Data</button>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Dinamis Toggle Status Kehadiran
+    const radioHadir = document.getElementById('statusHadir');
+    const radioIzin = document.getElementById('statusIzin');
+    const radioSakit = document.getElementById('statusSakit');
+
+    const secJurnal = document.getElementById('section-jurnal');
+    const secIzin = document.getElementById('section-izin');
+    const secSurat = document.getElementById('section-surat');
+    const secKamera = document.getElementById('section-kamera');
+
+    function toggleForm() {
+        if (radioHadir.checked) {
+            secJurnal.classList.remove('d-none');
+            secKamera.classList.remove('d-none');
+            secIzin.classList.add('d-none');
+            secSurat.classList.add('d-none');
+        } else {
+            secJurnal.classList.add('d-none');
+            secKamera.classList.add('d-none');
+            secIzin.classList.remove('d-none');
+            secSurat.classList.remove('d-none');
+        }
+    }
+
+    radioHadir.addEventListener('change', toggleForm);
+    radioIzin.addEventListener('change', toggleForm);
+    radioSakit.addEventListener('change', toggleForm);
+
+    // GPS Geolocation
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            document.getElementById('latitude').value = pos.coords.latitude;
+            document.getElementById('longitude').value = pos.coords.longitude;
+        });
+    }
+
+    // Check NIM Real-Time
+    document.getElementById('nomor_induk').addEventListener('change', function() {
+        const val = this.value.trim();
+        const info = document.getElementById('nama-peserta-info');
+        if(val) {
+            fetch(`/api/get-nama/${val}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        info.innerText = `✓ Peserta Ditemukan: ${data.nama} (${data.kategori})`;
+                        info.className = "text-success fw-bold mt-1 d-block";
+                    } else {
+                        info.innerText = `✗ ${data.message}`;
+                        info.className = "text-danger fw-bold mt-1 d-block";
+                    }
+                });
+        }
+    });
+
+    // Webcam Logic
+    const video = document.getElementById('webcam-video');
+    const preview = document.getElementById('webcam-preview');
+    const canvasWebcam = document.getElementById('webcam-canvas');
+    const btnAmbilFoto = document.getElementById('btn-ambil-foto');
+    const btnUlangFoto = document.getElementById('btn-ulang-foto');
+    const inputFotoBase64 = document.getElementById('foto_base64');
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+        .then((stream) => { video.srcObject = stream; })
+        .catch((err) => { console.warn("Kamera tidak diizinkan/tersedia"); });
+
+    btnAmbilFoto.addEventListener('click', function() {
+        const context = canvasWebcam.getContext('2d');
+        canvasWebcam.width = video.videoWidth || 320;
+        canvasWebcam.height = video.videoHeight || 240;
+        context.drawImage(video, 0, 0, canvasWebcam.width, canvasWebcam.height);
+
+        const dataURL = canvasWebcam.toDataURL('image/jpeg');
+        inputFotoBase64.value = dataURL;
+        preview.src = dataURL;
+        preview.classList.remove('d-none');
+        video.classList.add('d-none');
+        btnAmbilFoto.classList.add('d-none');
+        btnUlangFoto.classList.remove('d-none');
+    });
+
+    btnUlangFoto.addEventListener('click', function() {
+        inputFotoBase64.value = "";
+        preview.classList.add('d-none');
+        video.classList.remove('d-none');
+        btnAmbilFoto.classList.remove('d-none');
+        btnUlangFoto.classList.add('d-none');
+    });
+
+    // Signature Pad Logic
+    const canvasSig = document.getElementById('signature-pad');
+    const signaturePad = new SignaturePad(canvasSig, { backgroundColor: 'rgb(255, 255, 255)' });
+
+    function resizeCanvasSig() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvasSig.width = canvasSig.offsetWidth * ratio;
+        canvasSig.height = 180 * ratio;
+        canvasSig.getContext("2d").scale(ratio, ratio);
+        signaturePad.clear();
+    }
+    window.addEventListener("resize", resizeCanvasSig);
+    resizeCanvasSig();
+
+    document.getElementById('clear-signature').addEventListener('click', () => signaturePad.clear());
+
+    // Validasi Submit Form
+    document.getElementById('formPresensi').addEventListener('submit', function (e) {
+        if (radioHadir.checked && !inputFotoBase64.value) {
+            alert("Harap ambil foto selfie terlebih dahulu!");
+            e.preventDefault();
+            return false;
+        }
+
+        if (signaturePad.isEmpty()) {
+            alert("Harap berikan tanda tangan terlebih dahulu!");
+            e.preventDefault();
+            return false;
+        }
+
+        document.getElementById('ttd_base64').value = signaturePad.toDataURL('image/png');
+    });
+</script>
+</body>
+</html>
