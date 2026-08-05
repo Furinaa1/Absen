@@ -6,6 +6,7 @@ import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -17,6 +18,8 @@ from openpyxl import Workbook
 from models import db, Admin, Peserta, Absensi
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
 app.config['SECRET_KEY'] = 'rahasia-absen-pkl-magang'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database_absensi.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -34,6 +37,9 @@ login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(user_id):
     return Admin.query.get(int(user_id))
+
+# DOMAIN UTAMA PERMANEN (Agar tidak pernah nyasar lagi ke mollusk)
+DOMAIN_PERMANEN = "https://absen-production-24d4.up.railway.app"
 
 
 # --- ROUTE CETAK BIODATA PESERTA ---
@@ -68,7 +74,7 @@ def presensi():
             flash("NIM / NISN tidak terdaftar! Periksa kembali.", "danger")
             return redirect(url_for('presensi'))
 
-        # 1. Olah Simpan Foto Selfie (Jika Hadir Pagi atau Pulang Sore)
+        # 1. Olah Simpan Foto Selfie
         filename_foto = None
         if status in ['Hadir Pagi', 'Pulang Sore'] and foto_base64 and ',' in foto_base64:
             try:
@@ -94,7 +100,7 @@ def presensi():
             except Exception as e:
                 print(f"Gagal menyimpan TTD: {e}")
 
-        # 3. Olah Simpan File Surat Izin / Sakit (Jika Izin atau Sakit)
+        # 3. Olah Simpan File Surat Izin / Sakit
         filename_surat = None
         if status not in ['Hadir Pagi', 'Pulang Sore']:
             file_surat = request.files.get('surat_izin')
@@ -103,7 +109,6 @@ def presensi():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_surat)
                 file_surat.save(filepath)
 
-        # Simpan Data Presensi / Izin Ke DB
         absen_baru = Absensi(
             peserta_id=peserta.id,
             status=status,
@@ -124,7 +129,7 @@ def presensi():
     return render_template('presensi.html')
 
 
-# --- ROUTE FORM & PENYIMPANAN BIODATA SISWA/MAHASISWA (VIA QR) ---
+# --- ROUTE FORM & PENYIMPANAN BIODATA ---
 @app.route('/biodata', methods=['GET', 'POST'])
 def biodata():
     if request.method == 'POST':
@@ -159,7 +164,6 @@ def biodata():
     return render_template('biodata.html')
 
 
-# --- ROUTE REKAP & CETAK BIODATA LENGKAP ---
 @app.route('/admin/biodata-peserta')
 @login_required
 def admin_biodata_peserta():
@@ -167,50 +171,37 @@ def admin_biodata_peserta():
     return render_template('admin_biodata_peserta.html', peserta_list=all_peserta)
 
 
-# --- ROUTE DOWNLOAD REKAP WORD BIODATA ---
 @app.route('/admin/export-word-biodata')
 @login_required
 def export_word_biodata():
     doc = Document()
-    
     list_peserta = Peserta.query.all()
     if not list_peserta:
         doc.add_heading('Rekap Biodata Lengkap Peserta PKL/Magang', level=1)
         doc.add_paragraph('Belum ada data peserta.')
     else:
         for idx, p in enumerate(list_peserta, 1):
-            # Judul Dokumen di setiap halaman baru
             p_title = doc.add_paragraph()
             p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run_title = p_title.add_run('Rekap Biodata Lengkap Peserta PKL/Magang\n')
             run_title.bold = True
             run_title.font.size = Pt(14)
             
-            # Tabel Biodata
             table = doc.add_table(rows=1, cols=2)
             table.style = 'Table Grid'
             hdr_cells = table.rows[0].cells
             hdr_cells[0].text = 'Kolom Data'
             hdr_cells[1].text = 'Keterangan'
             
-            # Nama ditaruh di dalam tabel, tepat di atas NIM / NISN
             data_fields = [
-                ("Nama Lengkap", p.nama),
-                ("NIM / NISN", p.nomor_induk),
-                ("Kategori", p.kategori),
-                ("Tempat Lahir", p.tempat_lahir),
-                ("Tanggal Lahir", p.tanggal_lahir),
-                ("Jenis Kelamin", p.jenis_kelamin),
-                ("Hobi", p.hoby),
-                ("Asal Sekolah / Kampus", p.instansi),
-                ("Jurusan / Kelas", p.jurusan_kelas),
-                ("No HP", p.no_hp),
-                ("Email", p.email),
-                ("Alamat", p.alamat),
-                ("Bidang Penempatan", p.bidang_penempatan),
-                ("Tanggal Mulai", p.tanggal_mulai),
-                ("Tanggal Selesai", p.tanggal_selesai),
-                ("Nama Pembimbing", p.nama_pembimbing),
+                ("Nama Lengkap", p.nama), ("NIM / NISN", p.nomor_induk),
+                ("Kategori", p.kategori), ("Tempat Lahir", p.tempat_lahir),
+                ("Tanggal Lahir", p.tanggal_lahir), ("Jenis Kelamin", p.jenis_kelamin),
+                ("Hobi", p.hoby), ("Asal Sekolah / Kampus", p.instansi),
+                ("Jurusan / Kelas", p.jurusan_kelas), ("No HP", p.no_hp),
+                ("Email", p.email), ("Alamat", p.alamat),
+                ("Bidang Penempatan", p.bidang_penempatan), ("Tanggal Mulai", p.tanggal_mulai),
+                ("Tanggal Selesai", p.tanggal_selesai), ("Nama Pembimbing", p.nama_pembimbing),
                 ("NIP Pembimbing", p.nip)
             ]
             
@@ -219,21 +210,14 @@ def export_word_biodata():
                 row_cells[0].text = label
                 row_cells[1].text = str(val if val else '-')
                 
-            # Spasi pemisah sebelum bagian tanda tangan
             doc.add_paragraph()
-
-            # Tabel untuk Pas Foto dan Tanda Tangan (1 Baris, 2 Kolom)
             ttd_table = doc.add_table(rows=1, cols=2)
-            
-            cell_kiri = ttd_table.rows[0].cells[0]
-            cell_kanan = ttd_table.rows[0].cells[1]
+            cell_kiri, cell_kanan = ttd_table.rows[0].cells[0], ttd_table.rows[0].cells[1]
 
-            # Kolom Kiri: Kotak Pas Foto 3x4
             p_foto = cell_kiri.paragraphs[0]
             p_foto.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_foto.add_run("Pas foto\n3 x 4\nBerwarna")
 
-            # Kolom Kanan: Tempat, Tanggal, dan Tanda Tangan
             p_ttd = cell_kanan.paragraphs[0]
             p_ttd.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             p_ttd.add_run("Samarinda, ...................................\n")
@@ -241,7 +225,6 @@ def export_word_biodata():
             run_ttd_nama = p_ttd.add_run(f"( {p.nama if p.nama else '...................................'} )")
             run_ttd_nama.bold = True
 
-            # Page Break: Pastikan peserta berikutnya berada di 1 kertas/halaman baru
             if idx < len(list_peserta):
                 doc.add_page_break()
 
@@ -257,14 +240,13 @@ def export_word_biodata():
     )
 
 
-# --- ROUTE DOWNLOAD REKAP EXCEL PER PESERTA (MULTI-SHEET + LINK FOTO/TTD) ---
 @app.route('/export_excel')
 @login_required
 def export_excel():
     list_peserta = Peserta.query.all()
     file_path = 'rekap_absensi_per_peserta.xlsx'
     
-    base_url = "http://127.0.0.1:5000"
+    base_url = DOMAIN_PERMANEN
     
     wb = Workbook()
     default_sheet = wb.active
@@ -272,12 +254,7 @@ def export_excel():
     
     if not list_peserta:
         ws = wb.create_sheet(title='Tidak Ada Peserta')
-        ws.append([
-            'Waktu Masuk', 'Nama Peserta', 'Nomor Induk', 
-            'Kategori', 'Instansi', 'Status', 
-            'Keterangan / Jurnal / Alasan', 'Koordinat GPS', 
-            'Foto Selfie', 'Tanda Tangan'
-        ])
+        ws.append(['Waktu Masuk', 'Nama Peserta', 'Nomor Induk', 'Kategori', 'Instansi', 'Status', 'Keterangan', 'GPS', 'Foto', 'TTD'])
     else:
         for p in list_peserta:
             nama_sheet = "".join(c for c in p.nama if c.isalnum() or c in (' ', '_'))[:30].strip()
@@ -285,13 +262,7 @@ def export_excel():
                 nama_sheet = f"Peserta_{p.id}"
             
             ws = wb.create_sheet(title=nama_sheet)
-            
-            headers = [
-                'Waktu Masuk', 'Nama Peserta', 'Nomor Induk', 
-                'Kategori', 'Instansi', 'Status', 
-                'Keterangan / Jurnal / Alasan', 'Koordinat GPS', 
-                'Foto Selfie', 'Tanda Tangan'
-            ]
+            headers = ['Waktu Masuk', 'Nama Peserta', 'Nomor Induk', 'Kategori', 'Instansi', 'Status', 'Keterangan / Jurnal / Alasan', 'Koordinat GPS', 'Foto Selfie', 'Tanda Tangan']
             ws.append(headers)
             
             ws.column_dimensions['I'].width = 25
@@ -299,7 +270,7 @@ def export_excel():
             
             data_absensi_peserta = Absensi.query.filter_by(peserta_id=p.id).order_by(Absensi.waktu_masuk.desc()).all()
             
-            for index, a in enumerate(data_absensi_peserta, start=2):
+            for a in data_absensi_peserta:
                 waktu_str = a.waktu_masuk.strftime('%Y-%m-%d %H:%M:%S') if a.waktu_masuk else ''
                 keterangan = a.jurnal_harian if a.status == 'Pulang Sore' else a.alasan_izin
                 koordinat = f"{a.latitude}, {a.longitude}" if a.latitude and a.longitude else ''
@@ -307,18 +278,7 @@ def export_excel():
                 link_foto = f'=HYPERLINK("{base_url}/static/uploads/{a.foto_selfie}", "Lihat Foto")' if a.foto_selfie else '-'
                 link_ttd = f'=HYPERLINK("{base_url}/static/uploads/{a.tanda_tangan}", "Lihat TTD")' if a.tanda_tangan else '-'
                 
-                row_data = [
-                    waktu_str,
-                    p.nama or '',
-                    p.nomor_induk or '',
-                    p.kategori or '',
-                    p.instansi or '',
-                    a.status,
-                    keterangan or '',
-                    koordinat,
-                    link_foto, 
-                    link_ttd  
-                ]
+                row_data = [waktu_str, p.nama or '', p.nomor_induk or '', p.kategori or '', p.instansi or '', a.status, keterangan or '', koordinat, link_foto, link_ttd]
                 ws.append(row_data)
 
     wb.save(file_path)
@@ -359,38 +319,26 @@ def logout():
 @login_required
 def admin_dashboard():
     list_peserta = Peserta.query.all()
-    
     tanggal_mulai = request.args.get('tanggal_mulai')
     tanggal_selesai = request.args.get('tanggal_selesai')
     
     query = Absensi.query
-    
     if tanggal_mulai:
         try:
-            dt_mulai = datetime.strptime(tanggal_mulai, '%Y-%m-%d')
-            query = query.filter(Absensi.waktu_masuk >= dt_mulai)
+            query = query.filter(Absensi.waktu_masuk >= datetime.strptime(tanggal_mulai, '%Y-%m-%d'))
         except ValueError:
             pass
             
     if tanggal_selesai:
         try:
-            dt_selesai = datetime.strptime(tanggal_selesai + ' 23:59:59', '%Y-%m-%d %H:%M:%S')
-            query = query.filter(Absensi.waktu_masuk <= dt_selesai)
+            query = query.filter(Absensi.waktu_masuk <= datetime.strptime(tanggal_selesai + ' 23:59:59', '%Y-%m-%d %H:%M:%S'))
         except ValueError:
             pass
             
     rekap_absensi = query.order_by(Absensi.waktu_masuk.desc()).all()
-    
-    return render_template(
-        'admin_dashboard.html', 
-        peserta=list_peserta, 
-        absensi=rekap_absensi,
-        tanggal_mulai=tanggal_mulai,
-        tanggal_selesai=tanggal_selesai
-    )
+    return render_template('admin_dashboard.html', peserta=list_peserta, absensi=rekap_absensi, tanggal_mulai=tanggal_mulai, tanggal_selesai=tanggal_selesai)
 
 
-# --- ROUTE KELOLA PESERTA ---
 @app.route('/admin/peserta')
 @login_required
 def admin_peserta():
@@ -425,23 +373,23 @@ def hapus_peserta(id):
     flash("Data peserta berhasil dihapus!", "success")
     return redirect(url_for('admin_dashboard'))
 
+
 @app.route('/admin/generate-qr')
 @login_required
 def generate_qr():
-    domain_https = "https://mollusk-flammable-delegate.ngrok-free.dev"
+    domain_aktif = DOMAIN_PERMANEN
+
     os.makedirs('static', exist_ok=True)
     
-    # Generate QR Presensi
-    url_presensi = f"{domain_https}/presensi"
+    url_presensi = f"{domain_aktif}/presensi"
     qr_presensi = qrcode.make(url_presensi)
     qr_presensi.save('static/qr_absensi.png')
 
-    # Generate QR Biodata
-    url_biodata = f"{domain_https}/biodata"
+    url_biodata = f"{domain_aktif}/biodata"
     qr_biodata = qrcode.make(url_biodata)
     qr_biodata.save('static/qr_biodata.png')
 
-    flash("Semua QR Code (Presensi & Biodata) berhasil dibuat ulang!", "success")
+    flash(f"QR Code berhasil diperbarui menggunakan domain: {domain_aktif}", "success")
     return redirect(url_for('admin_dashboard'))
 
 def init_db():
@@ -453,6 +401,16 @@ def init_db():
             db.session.add(admin_default)
             db.session.commit()
             print("Akun admin default dibuat!")
+
+        # Otomatis buat ulang QR Code saat aplikasi boot di server (Railway)
+        os.makedirs('static', exist_ok=True)
+        
+        qr_presensi = qrcode.make(f"{DOMAIN_PERMANEN}/presensi")
+        qr_presensi.save('static/qr_absensi.png')
+        
+        qr_biodata = qrcode.make(f"{DOMAIN_PERMANEN}/biodata")
+        qr_biodata.save('static/qr_biodata.png')
+        print("QR Code otomatis di-generate ke domain Railway permanen!")
 
 if __name__ == '__main__':
     init_db()

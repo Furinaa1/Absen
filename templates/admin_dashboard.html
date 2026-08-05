@@ -90,6 +90,11 @@
             background: #198754;
         }
 
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
         .btn-sm {
             font-size: 12px;
             padding: 4px 8px;
@@ -145,10 +150,10 @@
     <div class="header">
         <h2>Dashboard Management Admin</h2>
         <div>
-            <a href="{{ url_for('admin_biodata_peserta') }}" class="btn btn-warning shadow-sm mb-3">
-                📋 Lihat Rekap Biodata Lengkap Peserta
+            <a href="{{ url_for('admin_biodata_peserta') }}" class="btn btn-warning mb-3">
+                Lihat Rekap Biodata Lengkap Peserta
             </a>
-            <a href="/export_excel" class="btn btn-excel">📊 Download Rekap Excel</a>
+            <a href="/export_excel" class="btn btn-excel">Download Rekap Excel</a>
             <a href="/admin/generate-qr" class="btn" style="background:#6c757d;">Generate QR Code</a>
             <a href="/logout" class="btn btn-danger">Logout</a>
         </div>
@@ -190,19 +195,19 @@
             </form>
 
             <hr style="margin: 20px 0;">
-            <div class="col-md-6 mb-3">
-                <h5>QR Code Presensi:</h5>
+            <div style="margin-bottom: 15px;">
+                <h5 style="margin-bottom: 5px;">QR Code Presensi:</h5>
                 <img src="{{ url_for('static', filename='qr_absensi.png') }}" alt="QR Presensi"
-                    class="img-fluid border p-2 bg-white shadow-sm" width="180">
-                <p class="text-muted small mt-2">Scan untuk absen / izin</p>
+                    style="border: 1px solid #ccc; padding: 5px; background: white;" width="160">
+                <p style="color: #6c757d; font-size: 12px; margin-top: 5px;">Scan untuk absen / izin</p>
             </div>
 
             <!-- Kolom QR Biodata -->
-            <div class="col-md-6 mb-3">
-                <h5>QR Code Biodata:</h5>
+            <div>
+                <h5 style="margin-bottom: 5px;">QR Code Biodata:</h5>
                 <img src="{{ url_for('static', filename='qr_biodata.png') }}" alt="QR Biodata"
-                    class="img-fluid border p-2 bg-white shadow-sm" width="180">
-                <p class="text-muted small mt-2">Scan untuk isi biodata siswa</p>
+                    style="border: 1px solid #ccc; padding: 5px; background: white;" width="160">
+                <p style="color: #6c757d; font-size: 12px; margin-top: 5px;">Scan untuk isi biodata siswa</p>
             </div>
         </div>
 
