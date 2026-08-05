@@ -11,24 +11,36 @@ class Admin(db.Model, UserMixin):
 
 class Peserta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nama = db.Column(db.String(100), nullable=False)
+    nama = db.Column(db.String(100), nullable=True)
     nomor_induk = db.Column(db.String(50), unique=True, nullable=False)
-    kategori = db.Column(db.String(20), nullable=False) # 'PKL' atau 'MAGANG'
-    instansi = db.Column(db.String(100), nullable=False)
+    kategori = db.Column(db.String(50), nullable=True)
+    instansi = db.Column(db.String(150), nullable=True)
     
-    absensi_list = db.relationship('Absensi', back_populates='peserta', lazy=True, cascade="all, delete-orphan")
-
+    tempat_lahir = db.Column(db.String(100), nullable=True)
+    tanggal_lahir = db.Column(db.String(50), nullable=True)
+    jenis_kelamin = db.Column(db.String(20), nullable=True)
+    hoby = db.Column(db.String(100), nullable=True)
+    jurusan_kelas = db.Column(db.String(100), nullable=True)
+    no_hp = db.Column(db.String(20), nullable=True)
+    email = db.Column(db.String(100), nullable=True)
+    alamat = db.Column(db.Text, nullable=True)
+    bidang_penempatan = db.Column(db.String(100), nullable=True)
+    tanggal_mulai = db.Column(db.String(50), nullable=True)
+    tanggal_selesai = db.Column(db.String(50), nullable=True)
+    nama_pembimbing = db.Column(db.String(100), nullable=True)
+    nip = db.Column(db.String(50), nullable=True)
+    
+    absensi = db.relationship('Absensi', backref='data_peserta', lazy=True, cascade="all, delete-orphan")
+    
 class Absensi(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     peserta_id = db.Column(db.Integer, db.ForeignKey('peserta.id'), nullable=False)
     waktu_masuk = db.Column(db.DateTime, default=datetime.now)
-    status = db.Column(db.String(20), default='Hadir') # 'Hadir', 'Izin', atau 'Sakit'
+    status = db.Column(db.String(20), default='Hadir')
     jurnal_harian = db.Column(db.Text, nullable=True)
     alasan_izin = db.Column(db.Text, nullable=True)
     foto_selfie = db.Column(db.String(255), nullable=True)
     tanda_tangan = db.Column(db.String(255), nullable=True)
-    surat_izin = db.Column(db.String(255), nullable=True) # <-- Kolom baru untuk file surat
+    surat_izin = db.Column(db.String(255), nullable=True)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
-
-    peserta = db.relationship('Peserta', back_populates='absensi_list')

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulir Biodata Peserta PKL / Magang</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .form-card { max-width: 800px; margin: 30px auto; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        .header-banner { background: linear-gradient(135deg, #0d6efd, #0a58ca); color: white; border-top-left-radius: 12px; border-top-right-radius: 12px; padding: 25px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="container py-4">
+        <div class="card form-card border-0">
+            <!-- Header Banner -->
+            <div class="header-banner">
+                <h4 class="fw-bold mb-1"><i class="fa-solid fa-file-lines me-2"></i> Formulir Biodata Siswa / Mahasiswa</h4>
+                <p class="mb-0 text-white-50">PKL / Magang - Sesuai Format Blangko Resmi</p>
+            </div>
+
+            <div class="card-body p-4 p-md-5">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Form Pengisian -->
+                ><form action="{{ url_for('biodata') }}" method="POST">
+                    
+                    <!-- Verifikasi NIM/NISN -->
+                    <div class="mb-4 bg-light p-3 rounded border">
+                        <label class="form-label fw-bold text-primary"><i class="fa-solid fa-id-card me-1"></i> Masukkan NIM / NISN Anda</label>
+                        <input type="text" name="nomor_induk" class="form-control" required placeholder="Masukkan NIM atau NISN yang telah didaftarkan admin">
+                        <small class="text-muted">Nomor induk digunakan untuk mencocokkan data yang telah disetujui admin.</small>
+                    </div>
+
+                    <h5 class="fw-bold text-secondary mb-3 border-bottom pb-2"><i class="fa-solid fa-user me-2"></i> A. Identitas Diri</h5>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nama Lengkap</label>
+                        <input type="text" name="nama" class="form-control" required placeholder="">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Tempat Lahir</label>
+                            <input type="text" name="tempat_lahir" class="form-control" required placeholder="">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Tanggal Lahir</label>
+                            <input type="date" name="tanggal_lahir" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Jenis Kelamin</label>
+                            <select name="jenis_kelamin" class="form-select" required>
+                                <option value="">-- Pilih Jenis Kelamin --</option>
+                                <option value="Laki-laki">Laki-laki</option>
+                                <option value="Perempuan">Perempuan</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Kategori Peserta</label>
+                            <select name="kategori" class="form-select">
+                                <option value="PKL">PKL (Siswa SMK/SMA)</option>
+                                <option value="Magang">Magang (Mahasiswa)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold"><i class="fa-solid fa-heart me-1"></i> Hoby</label>
+                        <input type="text" name="hoby" class="form-control" placeholder="">
+                    </div>
+
+                    <h5 class="fw-bold text-secondary mb-3 mt-4 border-bottom pb-2"><i class="fa-solid fa-graduation-cap me-2"></i> B. Asal Institusi, Kontak & Penempatan</h5>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Asal Sekolah / Kampus</label>
+                        <input type="text" name="instansi" class="form-control" required placeholder="">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Program Studi / Jurusan / Kelas</label>
+                        <input type="text" name="jurusan_kelas" class="form-control" required placeholder="">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Nomor HP / WhatsApp Aktif</label>
+                            <input type="text" name="no_hp" class="form-control" required placeholder="">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Alamat Email</label>
+                            <input type="email" name="email" class="form-control" placeholder="">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Alamat Tempat Tinggal / Domisili Saat Ini</label>
+                        <textarea name="alamat" class="form-control" rows="2" required placeholder=""></textarea>
+                    </div>
+
+                    <!-- Pindahan Bagian Penempatan & Tambahan Pembimbing/NIP -->
+                    <div class="mb-3 mt-4 p-3 bg-light rounded border">
+                        <label class="form-label fw-semibold text-primary"><i class="fa-solid fa-building-user me-1"></i> Tempat & Bidang Prakerin / Magang</label>
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Bidang / Bagian Penempatan</label>
+                            <input type="text" name="bidang_penempatan" class="form-control" placeholder="">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-semibold">Tanggal Mulai Magang</label>
+                                <input type="date" name="tanggal_mulai" class="form-control">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-semibold">Tanggal Selesai Magang</label>
+                                <input type="date" name="tanggal_selesai" class="form-control">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-semibold">Nama Pembimbing</label>
+                                <input type="text" name="nama_pembimbing" class="form-control" placeholder="">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label small fw-semibold">NIP Pembimbing</label>
+                                <input type="text" name="nip" class="form-control" placeholder="">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tombol Kirim -->
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                            <i class="fa-solid fa-floppy-disk me-2"></i> Simpan & Kirim Formulir Biodata
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

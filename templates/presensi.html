@@ -20,6 +20,8 @@
         }
         #webcam-video, #webcam-preview {
             width: 100%;
+            max-height: 300px;
+            object-fit: cover;
             border-radius: 8px;
             background-color: #212529;
         }
@@ -59,24 +61,36 @@
                         <!-- 2. Opsi Status Kehadiran -->
                         <div class="mb-3">
                             <label class="form-label fw-bold">Status Kehadiran</label>
-                            <div class="d-flex gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="status" id="statusHadir" value="Hadir" checked>
-                                    <label class="form-check-label fw-bold text-success" for="statusHadir">Hadir</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="status" id="statusHadirPagi" value="Hadir Pagi" checked>
+                                        <label class="form-check-label fw-bold text-success" for="statusHadirPagi">Hadir Pagi</label>
+                                    </div>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="status" id="statusIzin" value="Izin">
-                                    <label class="form-check-label fw-bold text-warning" for="statusIzin">Izin</label>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="status" id="statusPulangSore" value="Pulang Sore">
+                                        <label class="form-check-label fw-bold text-primary" for="statusPulangSore">Pulang Sore</label>
+                                    </div>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="status" id="statusSakit" value="Sakit">
-                                    <label class="form-check-label fw-bold text-danger" for="statusSakit">Sakit</label>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="status" id="statusIzin" value="Izin">
+                                        <label class="form-check-label fw-bold text-warning" for="statusIzin">Izin</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="status" id="statusSakit" value="Sakit">
+                                        <label class="form-check-label fw-bold text-danger" for="statusSakit">Sakit</label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 3. Form Jurnal (Tampil Jika HADIR) -->
-                        <div class="mb-3" id="section-jurnal">
+                        <!-- 3. Form Jurnal (Hanya Tampil Jika PULANG SORE) -->
+                        <div class="mb-3 d-none" id="section-jurnal">
                             <label for="jurnal" class="form-label fw-bold">Jurnal Kegiatan Harian</label>
                             <textarea class="form-control" id="jurnal" name="jurnal" rows="3" placeholder="Tuliskan ringkasan kegiatan hari ini..."></textarea>
                         </div>
@@ -94,13 +108,13 @@
                             <small class="text-muted">Format yang didukung: Gambar (JPG/PNG)</small>
                         </div>
 
-                        <!-- 5. Foto Selfie (Tampil Jika HADIR) -->
+                        <!-- 5. Foto Selfie (Tampil Jika HADIR PAGI atau PULANG SORE) -->
                         <div class="mb-3" id="section-kamera">
                             <label class="form-label fw-bold">Foto Selfie Presensi</label>
-                            <div class="text-center mb-2">
+                            <div class="text-center mb-2 position-relative">
                                 <video id="webcam-video" autoplay playsinline></video>
-                                <img id="webcam-preview" class="d-none" alt="Preview Selfie">
                                 <canvas id="webcam-canvas" class="d-none"></canvas>
+                                <img id="webcam-preview" class="d-none" alt="Preview Selfie">
                             </div>
                             <div class="d-flex justify-content-between">
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="btn-ambil-foto">📸 Ambil Foto Selfie</button>
@@ -137,7 +151,8 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Dinamis Toggle Status Kehadiran
-    const radioHadir = document.getElementById('statusHadir');
+    const radioHadirPagi = document.getElementById('statusHadirPagi');
+    const radioPulangSore = document.getElementById('statusPulangSore');
     const radioIzin = document.getElementById('statusIzin');
     const radioSakit = document.getElementById('statusSakit');
 
@@ -147,22 +162,30 @@
     const secKamera = document.getElementById('section-kamera');
 
     function toggleForm() {
-        if (radioHadir.checked) {
-            secJurnal.classList.remove('d-none');
+        if (radioHadirPagi.checked) {
             secKamera.classList.remove('d-none');
+            secJurnal.classList.add('d-none');
+            secIzin.classList.add('d-none');
+            secSurat.classList.add('d-none');
+        } else if (radioPulangSore.checked) {
+            secKamera.classList.remove('d-none');
+            secJurnal.classList.remove('d-none');
             secIzin.classList.add('d-none');
             secSurat.classList.add('d-none');
         } else {
-            secJurnal.classList.add('d-none');
             secKamera.classList.add('d-none');
+            secJurnal.classList.add('d-none');
             secIzin.classList.remove('d-none');
             secSurat.classList.remove('d-none');
         }
     }
 
-    radioHadir.addEventListener('change', toggleForm);
+    radioHadirPagi.addEventListener('change', toggleForm);
+    radioPulangSore.addEventListener('change', toggleForm);
     radioIzin.addEventListener('change', toggleForm);
     radioSakit.addEventListener('change', toggleForm);
+
+    toggleForm();
 
     // GPS Geolocation
     if (navigator.geolocation) {
@@ -204,16 +227,24 @@
         .catch((err) => { console.warn("Kamera tidak diizinkan/tersedia"); });
 
     btnAmbilFoto.addEventListener('click', function() {
+        // Validasi apakah video sudah siap streaming
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            alert("Kamera belum siap, mohon tunggu beberapa detik lalu coba lagi.");
+            return;
+        }
+
         const context = canvasWebcam.getContext('2d');
-        canvasWebcam.width = video.videoWidth || 320;
-        canvasWebcam.height = video.videoHeight || 240;
+        canvasWebcam.width = video.videoWidth;
+        canvasWebcam.height = video.videoHeight;
         context.drawImage(video, 0, 0, canvasWebcam.width, canvasWebcam.height);
 
         const dataURL = canvasWebcam.toDataURL('image/jpeg');
         inputFotoBase64.value = dataURL;
+        
         preview.src = dataURL;
         preview.classList.remove('d-none');
         video.classList.add('d-none');
+        
         btnAmbilFoto.classList.add('d-none');
         btnUlangFoto.classList.remove('d-none');
     });
@@ -222,6 +253,7 @@
         inputFotoBase64.value = "";
         preview.classList.add('d-none');
         video.classList.remove('d-none');
+        
         btnAmbilFoto.classList.remove('d-none');
         btnUlangFoto.classList.add('d-none');
     });
@@ -244,7 +276,7 @@
 
     // Validasi Submit Form
     document.getElementById('formPresensi').addEventListener('submit', function (e) {
-        if (radioHadir.checked && !inputFotoBase64.value) {
+        if ((radioHadirPagi.checked || radioPulangSore.checked) && !inputFotoBase64.value) {
             alert("Harap ambil foto selfie terlebih dahulu!");
             e.preventDefault();
             return false;

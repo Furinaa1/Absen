@@ -145,6 +145,9 @@
     <div class="header">
         <h2>Dashboard Management Admin</h2>
         <div>
+            <a href="{{ url_for('admin_biodata_peserta') }}" class="btn btn-warning shadow-sm mb-3">
+                📋 Lihat Rekap Biodata Lengkap Peserta
+            </a>
             <a href="/export_excel" class="btn btn-excel">📊 Download Rekap Excel</a>
             <a href="/admin/generate-qr" class="btn" style="background:#6c757d;">Generate QR Code</a>
             <a href="/logout" class="btn btn-danger">Logout</a>
@@ -187,11 +190,19 @@
             </form>
 
             <hr style="margin: 20px 0;">
-            <h4>QR Code Presensi Saat Ini:</h4>
-            <div style="text-align: center;">
-                <img src="/static/qr_absensi.png" alt="QR Code Absensi"
-                    style="width:160px; border:1px solid #ccc; padding: 5px; border-radius: 5px;">
-                <p><small style="color: #666;">Scan QR ini di HP untuk tes absensi</small></p>
+            <div class="col-md-6 mb-3">
+                <h5>QR Code Presensi:</h5>
+                <img src="{{ url_for('static', filename='qr_absensi.png') }}" alt="QR Presensi"
+                    class="img-fluid border p-2 bg-white shadow-sm" width="180">
+                <p class="text-muted small mt-2">Scan untuk absen / izin</p>
+            </div>
+
+            <!-- Kolom QR Biodata -->
+            <div class="col-md-6 mb-3">
+                <h5>QR Code Biodata:</h5>
+                <img src="{{ url_for('static', filename='qr_biodata.png') }}" alt="QR Biodata"
+                    class="img-fluid border p-2 bg-white shadow-sm" width="180">
+                <p class="text-muted small mt-2">Scan untuk isi biodata siswa</p>
             </div>
         </div>
 
@@ -279,10 +290,18 @@
                             {% endif %}
                         </td>
 
-                        <td>{{ a.peserta.nama }} ({{ a.peserta.kategori }})</td>
+                        <td>{{ a.data_peserta.nama }} ({{ a.data_peserta.kategori }})</td>
                         <td>
                             <b>[{{ a.status }}]</b><br>
-                            <small>{{ a.jurnal_harian if a.status == 'Hadir' else a.alasan_izin }}</small>
+                            <small>
+                                {% if a.status == 'Pulang Sore' %}
+                                {{ a.jurnal_harian }}
+                                {% elif a.status == 'Hadir Pagi' %}
+                                -
+                                {% else %}
+                                {{ a.alasan_izin }}
+                                {% endif %}
+                            </small>
                         </td>
                         <td>
                             {% if a.latitude and a.longitude %}
@@ -303,7 +322,6 @@
             </table>
         </div>
     </div>
-
 </body>
 
 </html>

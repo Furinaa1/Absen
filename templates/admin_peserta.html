@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola Daftar Peserta - Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-light">
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark bg-dark shadow-sm">
+        <div class="container-fluid px-4">
+            <span class="navbar-brand fw-bold"><i class="fa-solid fa-user-shield me-2"></i> Admin Panel PKL</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-right-from-bracket me-1"></i> Logout</a>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3 class="fw-bold mb-1"><i class="fa-solid fa-users text-primary me-2"></i> Kelola Daftar Peserta</h3>
+                <p class="text-muted mb-0">Daftar NIM/NISN peserta yang diizinkan mengisi absen dan biodata.</p>
+            </div>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary shadow-sm">
+                <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Dashboard
+            </a>
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Form Tambah Peserta -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-primary text-white fw-bold">
+                <i class="fa-solid fa-user-plus me-1"></i> Tambah Peserta Baru
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('tambah_peserta') }}" method="POST" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Nama Lengkap</label>
+                        <input type="text" name="nama" class="form-control" required placeholder="Nama peserta">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">NIM / NISN</label>
+                        <input type="text" name="nomor_induk" class="form-control" required placeholder="Nomor induk unik">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Kategori</label>
+                        <select name="kategori" class="form-select">
+                            <option value="PKL">PKL</option>
+                            <option value="Magang">Magang</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Asal Sekolah / Kampus</label>
+                        <input type="text" name="instansi" class="form-control" placeholder="Nama sekolah/kampus">
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100 shadow-sm"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tabel Daftar Peserta -->
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center py-3" style="width: 5%;">No</th>
+                                <th class="py-3">Nama Lengkap</th>
+                                <th class="py-3">NIM / NISN</th>
+                                <th class="py-3">Kategori</th>
+                                <th class="py-3">Asal Sekolah / Kampus</th>
+                                <th class="text-center py-3" style="width: 15%;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if peserta_list %}
+                                {% for p in peserta_list %}
+                                <tr>
+                                    <td class="text-center fw-semibold">{{ loop.index }}</td>
+                                    <td>{{ p.nama }}</td>
+                                    <td><code>{{ p.nomor_induk }}</code></td>
+                                    <td><span class="badge bg-info text-dark">{{ p.kategori }}</span></td>
+                                    <td>{{ p.instansi if p.instansi else '-' }}</td>
+                                    <td class="text-center">
+                                        <a href="{{ url_for('hapus_peserta', id=p.id) }}" class="btn btn-sm btn-danger shadow-sm" onclick="return confirm('Yakin ingin menghapus peserta ini?')">
+                                            <i class="fa-solid fa-trash me-1"></i> Hapus
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">Belum ada data peserta terdaftar.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
