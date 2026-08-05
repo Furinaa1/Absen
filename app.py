@@ -1,7 +1,7 @@
 import os
 import base64
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -47,6 +47,9 @@ def load_user(user_id):
 # DOMAIN UTAMA 
 DOMAIN_PERMANEN = "https://absen-production-1c49.up.railway.app"
 
+# ZONA WAKTU LOKAL (WITA = UTC + 8)
+WITA = timezone(timedelta(hours=8))
+
 
 # --- ROUTE CETAK BIODATA PESERTA ---
 @app.route('/admin/peserta/cetak/<int:id>')
@@ -80,13 +83,17 @@ def presensi():
             flash("NIM / NISN tidak terdaftar! Periksa kembali.", "danger")
             return redirect(url_for('presensi'))
 
+        # Waktu Lokal WITA
+        waktu_sekarang = datetime.now(WITA)
+        timestamp_sekarang = int(waktu_sekarang.timestamp())
+
         # 1. Olah Simpan Foto Selfie
         filename_foto = None
         if status in ['Hadir Pagi', 'Pulang Sore'] and foto_base64 and ',' in foto_base64:
             try:
                 header, encoded = foto_base64.split(',', 1)
                 data = base64.b64decode(encoded)
-                filename_foto = f"selfie_{nomor_induk}_{int(datetime.now().timestamp())}.jpg"
+                filename_foto = f"selfie_{nomor_induk}_{timestamp_sekarang}.jpg"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_foto)
                 with open(filepath, "wb") as f:
                     f.write(data)
@@ -99,7 +106,7 @@ def presensi():
             try:
                 header, encoded = ttd_base64.split(',', 1)
                 data = base64.b64decode(encoded)
-                filename_ttd = f"ttd_{nomor_induk}_{int(datetime.now().timestamp())}.png"
+                filename_ttd = f"ttd_{nomor_induk}_{timestamp_sekarang}.png"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_ttd)
                 with open(filepath, "wb") as f:
                     f.write(data)
@@ -111,7 +118,7 @@ def presensi():
         if status not in ['Hadir Pagi', 'Pulang Sore']:
             file_surat = request.files.get('surat_izin')
             if file_surat and file_surat.filename != '':
-                filename_surat = f"surat_{nomor_induk}_{int(datetime.now().timestamp())}.jpg"
+                filename_surat = f"surat_{nomor_induk}_{timestamp_sekarang}.jpg"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_surat)
                 file_surat.save(filepath)
 
@@ -124,7 +131,8 @@ def presensi():
             tanda_tangan=filename_ttd,
             surat_izin=filename_surat,  
             latitude=float(lat) if lat and lat != '' else None,
-            longitude=float(long) if long and long != '' else None
+            longitude=float(long) if long and long != '' else None,
+            waktu_masuk=waktu_sekarang.replace(tzinfo=None) # Disimpan ke DB tanpa timezone offset agar kompatibel dengan SQLite/Postgres
         )
         db.session.add(absen_baru)
         db.session.commit()
