@@ -39,7 +39,7 @@ def load_user(user_id):
     return Admin.query.get(int(user_id))
 
 # DOMAIN UTAMA PERMANEN (Agar tidak pernah nyasar lagi ke mollusk)
-DOMAIN_PERMANEN = "https://absen-production-24d4.up.railway.app"
+DOMAIN_PERMANEN = "https://absen-production-1c49.up.railway.app"
 
 
 # --- ROUTE CETAK BIODATA PESERTA ---
