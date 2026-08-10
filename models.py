@@ -45,8 +45,11 @@ class Absensi(db.Model):
     status = db.Column(db.String(20), default='Hadir Pagi')
     jurnal_harian = db.Column(db.Text, nullable=True)
     alasan_izin = db.Column(db.Text, nullable=True)
-    foto_selfie = db.Column(db.String(255), nullable=True)
-    tanda_tangan = db.Column(db.String(255), nullable=True)
-    surat_izin = db.Column(db.String(255), nullable=True)
+    
+    # Diubah menjadi db.Text agar muat menampung URL Cloudinary yang panjang
+    foto_selfie = db.Column(db.Text, nullable=True)
+    tanda_tangan = db.Column(db.Text, nullable=True)
+    surat_izin = db.Column(db.Text, nullable=True)
+    
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)

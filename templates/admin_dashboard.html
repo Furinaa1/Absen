@@ -279,9 +279,9 @@
             <a href="{{ url_for('admin_biodata_peserta') }}" class="btn btn-warning">
                 Lihat Rekap Biodata Lengkap
             </a>
-            <a href="/export_excel" class="btn btn-excel">Download Rekap Excel</a>
-            <a href="/admin/generate-qr" class="btn btn-secondary">Generate QR Code</a>
-            <a href="/logout" class="btn btn-danger">Logout</a>
+            <a href="{{ url_for('export_excel') }}" class="btn btn-excel">Download Rekap Excel</a>
+            <a href="{{ url_for('generate_qr') }}" class="btn btn-secondary">Generate QR Code</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
         </div>
     </div>
 
@@ -298,7 +298,7 @@
         <!-- Form Tambah Peserta & Kartu QR Code -->
         <div class="box form-box">
             <h3 style="margin-bottom: 15px;">Tambah Anak PKL / Magang</h3>
-            <form method="POST" action="/admin/peserta/tambah">
+            <form method="POST" action="{{ url_for('tambah_peserta') }}">
                 <div class="form-group">
                     <label for="nama">Nama Lengkap:</label>
                     <input type="text" id="nama" name="nama" class="form-control" required placeholder="Masukkan Nama">
@@ -329,13 +329,13 @@
             <div class="qr-section">
                 <div class="qr-card">
                     <h5>QR Presensi:</h5>
-                    <img src="{{ url_for('static', filename='qr_absensi.png') }}" alt="QR Presensi" width="120">
+                    <img src="{{ url_for('uploaded_file', filename='qr_absensi.png') }}" alt="QR Presensi" width="120">
                     <p>Scan untuk absen / izin</p>
                 </div>
 
                 <div class="qr-card">
                     <h5>QR Biodata:</h5>
-                    <img src="{{ url_for('static', filename='qr_biodata.png') }}" alt="QR Biodata" width="120">
+                    <img src="{{ url_for('uploaded_file', filename='qr_biodata.png') }}" alt="QR Biodata" width="120">
                     <p>Scan untuk isi biodata</p>
                 </div>
             </div>
@@ -363,7 +363,7 @@
                             <td><span class="badge">{{ p.kategori }}</span></td>
                             <td>{{ p.instansi }}</td>
                             <td style="text-align: center;">
-                                <a href="/admin/peserta/hapus/{{ p.id }}" class="btn btn-danger btn-sm"
+                                <a href="{{ url_for('hapus_peserta', id=p.id) }}" class="btn btn-danger btn-sm"
                                     onclick="return confirm('Apakah Anda yakin ingin menghapus peserta ini?')">Hapus</a>
                             </td>
                         </tr>
@@ -398,8 +398,8 @@
                             <!-- Preview Foto Selfie -->
                             <td style="text-align: center;">
                                 {% if a.foto_selfie %}
-                                <a href="/static/uploads/{{ a.foto_selfie }}" target="_blank">
-                                    <img src="/static/uploads/{{ a.foto_selfie }}" alt="Selfie" class="img-preview">
+                                <a href="{{ url_for('uploaded_file', filename=a.foto_selfie) }}" target="_blank">
+                                    <img src="{{ url_for('uploaded_file', filename=a.foto_selfie) }}" alt="Selfie" class="img-preview">
                                 </a>
                                 {% else %}
                                 <span style="color: #aaa; font-size: 12px;">Tanpa Foto</span>
@@ -409,8 +409,8 @@
                             <!-- Preview Tanda Tangan Digital -->
                             <td style="text-align: center;">
                                 {% if a.tanda_tangan %}
-                                <a href="/static/uploads/{{ a.tanda_tangan }}" target="_blank">
-                                    <img src="/static/uploads/{{ a.tanda_tangan }}" alt="TTD" class="img-ttd-preview">
+                                <a href="{{ url_for('uploaded_file', filename=a.tanda_tangan) }}" target="_blank">
+                                    <img src="{{ url_for('uploaded_file', filename=a.tanda_tangan) }}" alt="TTD" class="img-ttd-preview">
                                 </a>
                                 {% else %}
                                 <span style="color: #aaa; font-size: 12px;">Tanpa TTD</span>
@@ -420,15 +420,15 @@
                             <!-- Preview Surat Izin / Sakit -->
                             <td style="text-align: center;">
                                 {% if a.surat_izin %}
-                                <a href="/static/uploads/{{ a.surat_izin }}" target="_blank">
-                                    <img src="/static/uploads/{{ a.surat_izin }}" alt="Surat" class="img-preview">
+                                <a href="{{ url_for('uploaded_file', filename=a.surat_izin) }}" target="_blank">
+                                    <img src="{{ url_for('uploaded_file', filename=a.surat_izin) }}" alt="Surat" class="img-preview">
                                 </a>
                                 {% else %}
                                 <span style="color: #aaa; font-size: 12px;">-</span>
                                 {% endif %}
                             </td>
 
-                            <!-- Nama & Kategori Peserta (Diperbaiki agar Aman dari UndefinedError) -->
+                            <!-- Nama & Kategori Peserta -->
                             <td>
                                 {% if a.peserta %}
                                     {{ a.peserta.nama }} <small class="text-muted">({{ a.peserta.kategori }})</small>

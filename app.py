@@ -2,7 +2,7 @@ import os
 import base64
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -11,6 +11,8 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import qrcode
 from openpyxl import Workbook
+import cloudinary
+import cloudinary.uploader
 
 from models import db, Admin, Peserta, Absensi
 
@@ -18,6 +20,13 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rahasia-absen-pkl-magang')
+
+# --- KONFIGURASI CLOUDINARY ---
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET")
+)
 
 # --- KONFIGURASI DATABASE ---
 raw_db_url = os.environ.get("DATABASE_URL", "").strip()
@@ -35,7 +44,7 @@ else:
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Konfigurasi Pool Connection agar koneksi PostgreSQL Railway tahan putus
+# Konfigurasi Pool Connection agar koneksi PostgreSQL tahan putus
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_pre_ping": True,
     "pool_recycle": 300,
@@ -78,8 +87,29 @@ def load_user(user_id):
     except Exception:
         return None
 
-DOMAIN_PERMANEN = "https://absen-production-1c49.up.railway.app"
 WITA = timezone(timedelta(hours=8))
+
+def get_current_domain():
+    """Fungsi helper untuk mendapatkan domain aktif secara dinamis & aman"""
+    vercel_url = os.environ.get("VERCEL_URL")
+    if vercel_url:
+        return f"https://{vercel_url}"
+    
+    if request.host:
+        scheme = request.headers.get('X-Forwarded-Proto', 'https')
+        return f"{scheme}://{request.host}"
+        
+    return "https://absen-4goursy9v-kunii.vercel.app"
+
+# --- HELPER UPLOAD CLOUDINARY ---
+def upload_to_cloudinary(file_data, folder_name="absensi_pkl"):
+    """Mengunggah file (baik base64 string, byte, atau file object) ke Cloudinary dan mengembalikan secure URL."""
+    try:
+        response = cloudinary.uploader.upload(file_data, folder=folder_name)
+        return response.get("secure_url")
+    except Exception as e:
+        print(f"Gagal upload ke Cloudinary: {e}")
+        return None
 
 # --- ROUTES ---
 
@@ -89,7 +119,6 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # Jalankan inisialisasi DB dengan aman saat halaman login diakses
     init_db_safe()
 
     if request.method == 'POST':
@@ -114,6 +143,11 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+# --- ROUTE UNTUK MENGAKSES FILE LOKAL/FALLBACK (QR Code, dll) ---
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 @app.route('/presensi', methods=['GET', 'POST'])
 def presensi():
     if request.method == 'POST':
@@ -132,51 +166,42 @@ def presensi():
             return redirect(url_for('presensi'))
 
         waktu_sekarang = datetime.now(WITA)
-        timestamp_sekarang = int(waktu_sekarang.timestamp())
 
-        filename_foto = None
-        if status in ['Hadir Pagi', 'Pulang Sore'] and foto_base64 and ',' in foto_base64:
-            try:
-                header, encoded = foto_base64.split(',', 1)
-                data = base64.b64decode(encoded)
-                filename_foto = f"selfie_{nomor_induk}_{timestamp_sekarang}.jpg"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_foto)
-                with open(filepath, "wb") as f:
-                    f.write(data)
-            except Exception as e:
-                print(f"Gagal menyimpan foto: {e}")
+        # Upload Foto Selfie ke Cloudinary
+        url_foto = None
+        if status in ['Hadir Pagi', 'Pulang Sore'] and foto_base64:
+            url_foto = upload_to_cloudinary(foto_base64, folder_name="selfie_peserta")
 
-        filename_ttd = None
-        if ttd_base64 and ',' in ttd_base64:
-            try:
-                header, encoded = ttd_base64.split(',', 1)
-                data = base64.b64decode(encoded)
-                filename_ttd = f"ttd_{nomor_induk}_{timestamp_sekarang}.png"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_ttd)
-                with open(filepath, "wb") as f:
-                    f.write(data)
-            except Exception as e:
-                print(f"Gagal menyimpan TTD: {e}")
+        # Upload Tanda Tangan ke Cloudinary
+        url_ttd = None
+        if ttd_base64:
+            url_ttd = upload_to_cloudinary(ttd_base64, folder_name="tanda_tangan")
 
-        filename_surat = None
+        # Upload Surat Izin ke Cloudinary (jika ada)
+        url_surat = None
         if status not in ['Hadir Pagi', 'Pulang Sore']:
             file_surat = request.files.get('surat_izin')
             if file_surat and file_surat.filename != '':
-                ext = file_surat.filename.rsplit('.', 1)[-1].lower() if '.' in file_surat.filename else 'jpg'
-                filename_surat = f"surat_{nomor_induk}_{timestamp_sekarang}.{ext}"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_surat)
-                file_surat.save(filepath)
+                url_surat = upload_to_cloudinary(file_surat, folder_name="surat_izin")
+
+        lat_float = None
+        long_float = None
+        try:
+            if lat: lat_float = float(lat)
+            if long: long_float = float(long)
+        except ValueError:
+            pass
 
         absen_baru = Absensi(
             peserta_id=peserta.id,
             status=status,
             jurnal_harian=jurnal if status == 'Pulang Sore' else None,
             alasan_izin=alasan_izin if status not in ['Hadir Pagi', 'Pulang Sore'] else None,
-            foto_selfie=filename_foto,
-            tanda_tangan=filename_ttd,
-            surat_izin=filename_surat,  
-            latitude=float(lat) if lat and lat != '' else None,
-            longitude=float(long) if long and long != '' else None,
+            foto_selfie=url_foto,       # Menyimpan URL Cloudinary secara permanen
+            tanda_tangan=url_ttd,       # Menyimpan URL Cloudinary secara permanen
+            surat_izin=url_surat,       # Menyimpan URL Cloudinary secara permanen
+            latitude=lat_float,
+            longitude=long_float,
             waktu_masuk=waktu_sekarang.replace(tzinfo=None)
         )
         db.session.add(absen_baru)
@@ -285,20 +310,13 @@ def tambah_peserta():
 def hapus_peserta(id):
     peserta = Peserta.query.get_or_404(id)
     absensi_records = Absensi.query.filter_by(peserta_id=peserta.id).all()
+    
     for absensi in absensi_records:
-        for file_attr in [absensi.foto_selfie, absensi.tanda_tangan, absensi.surat_izin]:
-            if file_attr:
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_attr)
-                if os.path.exists(file_path):
-                    try:
-                        os.remove(file_path)
-                    except Exception as e:
-                        print(f"Gagal menghapus file {file_path}: {e}")
         db.session.delete(absensi)
 
     db.session.delete(peserta)
     db.session.commit()
-    flash("Data peserta berhasil dihapus!", "success")
+    flash("Data peserta beserta absensinya berhasil dihapus!", "success")
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/export-word-biodata')
@@ -373,7 +391,6 @@ def export_word_biodata():
 @login_required
 def export_excel():
     list_peserta = Peserta.query.all()
-    base_url = DOMAIN_PERMANEN
     
     wb = Workbook()
     default_sheet = wb.active
@@ -392,8 +409,8 @@ def export_excel():
             headers = ['Waktu Masuk', 'Nama Peserta', 'Nomor Induk', 'Kategori', 'Instansi', 'Status', 'Keterangan / Jurnal / Alasan', 'Koordinat GPS', 'Foto Selfie', 'Tanda Tangan']
             ws.append(headers)
             
-            ws.column_dimensions['I'].width = 25
-            ws.column_dimensions['J'].width = 25
+            ws.column_dimensions['I'].width = 35
+            ws.column_dimensions['J'].width = 35
             
             data_absensi_peserta = Absensi.query.filter_by(peserta_id=p.id).order_by(Absensi.waktu_masuk.desc()).all()
             
@@ -402,8 +419,9 @@ def export_excel():
                 keterangan = a.jurnal_harian if a.status == 'Pulang Sore' else a.alasan_izin
                 koordinat = f"{a.latitude}, {a.longitude}" if a.latitude and a.longitude else ''
                 
-                link_foto = f'=HYPERLINK("{base_url}/static/uploads/{a.foto_selfie}", "Lihat Foto")' if a.foto_selfie else '-'
-                link_ttd = f'=HYPERLINK("{base_url}/static/uploads/{a.tanda_tangan}", "Lihat TTD")' if a.tanda_tangan else '-'
+                # Menggunakan URL langsung dari Cloudinary untuk Excel
+                link_foto = f'=HYPERLINK("{a.foto_selfie}", "Lihat Foto")' if a.foto_selfie else '-'
+                link_ttd = f'=HYPERLINK("{a.tanda_tangan}", "Lihat TTD")' if a.tanda_tangan else '-'
                 
                 row_data = [waktu_str, p.nama or '', p.nomor_induk or '', p.kategori or '', p.instansi or '', a.status, keterangan or '', koordinat, link_foto, link_ttd]
                 ws.append(row_data)
@@ -430,19 +448,18 @@ def get_nama(nomor_induk):
 @app.route('/admin/generate-qr')
 @login_required
 def generate_qr():
-    domain_aktif = DOMAIN_PERMANEN
-    qr_dir = '/tmp' if IS_VERCEL else 'static'
-    os.makedirs(qr_dir, exist_ok=True)
+    domain_aktif = get_current_domain()
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     
     url_presensi = f"{domain_aktif}/presensi"
     qr_presensi = qrcode.make(url_presensi)
-    qr_presensi.save(os.path.join(qr_dir, 'qr_absensi.png'))
+    qr_presensi.save(os.path.join(UPLOAD_FOLDER, 'qr_absensi.png'))
 
     url_biodata = f"{domain_aktif}/biodata"
     qr_biodata = qrcode.make(url_biodata)
-    qr_biodata.save(os.path.join(qr_dir, 'qr_biodata.png'))
+    qr_biodata.save(os.path.join(UPLOAD_FOLDER, 'qr_biodata.png'))
 
-    flash(f"QR Code berhasil diperbarui menggunakan domain: {domain_aktif}", "success")
+    flash(f"QR Code Presensi & Biodata berhasil diperbarui menggunakan domain: {domain_aktif}", "success")
     return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
