@@ -6,131 +6,238 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Admin - Absensi</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 20px;
-            background-color: #f8f9fa;
+        :root {
+            --primary-color: #007bff;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --excel-color: #198754;
+            --dark-color: #343a40;
+            --light-bg: #f8f9fa;
         }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-bg);
+            color: #333;
+            padding: 20px;
+        }
+
+        /* Header Styling */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #ccc;
-            padding-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 15px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
         }
 
-        .container {
+        .header h2 {
+            color: var(--dark-color);
+            font-size: 1.5rem;
+        }
+
+        .header-actions {
             display: flex;
-            gap: 20px;
-            margin-top: 20px;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
+        /* Layout Container */
+        .container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+
         .box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .form-box {
-            flex: 1;
-            min-width: 300px;
+            flex: 1 1 320px;
         }
 
         .table-box {
-            flex: 2;
-            min-width: 500px;
+            flex: 2 1 600px;
+            overflow: hidden;
         }
 
-        table {
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .form-control {
             width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-            vertical-align: middle;
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
         }
 
-        th {
-            background-color: #007bff;
-            color: white;
-        }
-
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-
+        /* Buttons */
         .btn {
-            padding: 8px 12px;
-            background: #28a745;
+            padding: 8px 16px;
+            background-color: var(--primary-color);
             color: white;
             text-decoration: none;
-            border-radius: 4px;
+            border-radius: 6px;
             border: none;
             cursor: pointer;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
         }
 
         .btn:hover {
             opacity: 0.9;
         }
 
-        .btn-danger {
-            background: #dc3545;
-        }
-
-        .btn-excel {
-            background: #198754;
-        }
-
-        .btn-warning {
-            background: #ffc107;
-            color: #212529;
+        .btn-success { background-color: var(--success-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-excel { background-color: var(--excel-color); }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-warning { 
+            background-color: var(--warning-color); 
+            color: #212529; 
         }
 
         .btn-sm {
-            font-size: 12px;
-            padding: 4px 8px;
+            font-size: 0.8rem;
+            padding: 4px 10px;
         }
 
-        .alert {
+        .btn-block {
+            width: 100%;
+        }
+
+        /* Table Styling */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 15px;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            border: 1px solid #e9ecef;
+            padding: 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        tr:hover {
+            background-color: #f1f3f5;
+        }
+
+        /* QR Code Cards Section */
+        .qr-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .qr-card {
+            text-align: center;
+            background: #fafafa;
             padding: 10px;
-            margin-top: 10px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .qr-card img {
+            border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 14px;
+            padding: 4px;
+            background: white;
+            max-width: 100%;
+            height: auto;
         }
 
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .qr-card h5 {
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            color: #495057;
         }
 
-        .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .qr-card p {
+            color: #6c757d;
+            font-size: 0.75rem;
+            margin-top: 4px;
         }
 
-        .alert-warning {
-            background-color: #fff3cd;
-            color: #664d03;
-            border: 1px solid #ffecb5;
+        /* Alerts */
+        .alert {
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            font-size: 0.9rem;
         }
 
+        .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .alert-warning { background-color: #fff3cd; color: #664d03; border: 1px solid #ffecb5; }
+        .alert-info { background-color: #cce5ff; color: #004085; border: 1px solid #b8daff; }
+
+        /* Image Previews */
         .img-preview {
-            width: 50px;
-            height: 50px;
+            width: 48px;
+            height: 48px;
             object-fit: cover;
-            border-radius: 4px;
-            border: 1px solid #ccc;
+            border-radius: 6px;
+            border: 1px solid #ced4da;
+            transition: transform 0.2s ease;
         }
 
         .img-ttd-preview {
@@ -138,23 +245,42 @@
             height: 40px;
             object-fit: contain;
             background-color: #fff;
-            border-radius: 4px;
-            border: 1px dashed #aaa;
+            border-radius: 6px;
+            border: 1px dashed #adb5bd;
             padding: 2px;
+            transition: transform 0.2s ease;
         }
+
+        .img-preview:hover, .img-ttd-preview:hover {
+            transform: scale(1.1);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 4px;
+            background-color: #e9ecef;
+            color: #495057;
+        }
+
+        .badge-success { background-color: #d4edda; color: #155724; }
+        .badge-warning { background-color: #fff3cd; color: #664d03; }
     </style>
 </head>
 
 <body>
 
+    <!-- Header Section -->
     <div class="header">
         <h2>Dashboard Management Admin</h2>
-        <div>
-            <a href="{{ url_for('admin_biodata_peserta') }}" class="btn btn-warning mb-3">
-                Lihat Rekap Biodata Lengkap Peserta
+        <div class="header-actions">
+            <a href="{{ url_for('admin_biodata_peserta') }}" class="btn btn-warning">
+                Lihat Rekap Biodata Lengkap
             </a>
             <a href="/export_excel" class="btn btn-excel">Download Rekap Excel</a>
-            <a href="/admin/generate-qr" class="btn" style="background:#6c757d;">Generate QR Code</a>
+            <a href="/admin/generate-qr" class="btn btn-secondary">Generate QR Code</a>
             <a href="/logout" class="btn btn-danger">Logout</a>
         </div>
     </div>
@@ -169,164 +295,173 @@
     {% endwith %}
 
     <div class="container">
-        <!-- Form Tambah Peserta -->
+        <!-- Form Tambah Peserta & Kartu QR Code -->
         <div class="box form-box">
-            <h3>Tambah Anak PKL / Magang</h3>
+            <h3 style="margin-bottom: 15px;">Tambah Anak PKL / Magang</h3>
             <form method="POST" action="/admin/peserta/tambah">
-                <label>Nama Lengkap:</label><br>
-                <input type="text" name="nama" required placeholder="Masukkan Nama"
-                    style="width:100%; margin: 5px 0 15px 0; padding: 8px; box-sizing: border-box;"><br>
+                <div class="form-group">
+                    <label for="nama">Nama Lengkap:</label>
+                    <input type="text" id="nama" name="nama" class="form-control" required placeholder="Masukkan Nama">
+                </div>
 
-                <label>Nomor Induk (NIM / NISN):</label><br>
-                <input type="text" name="nomor_induk" required placeholder="Contoh: 210101 / 001234"
-                    style="width:100%; margin: 5px 0 15px 0; padding: 8px; box-sizing: border-box;"><br>
+                <div class="form-group">
+                    <label for="nomor_induk">Nomor Induk (NIM / NISN):</label>
+                    <input type="text" id="nomor_induk" name="nomor_induk" class="form-control" required placeholder="Contoh: 210101 / 001234">
+                </div>
 
-                <label>Kategori:</label><br>
-                <select name="kategori" style="width:100%; margin: 5px 0 15px 0; padding:8px; box-sizing: border-box;">
-                    <option value="PKL">Anak PKL (NISN)</option>
-                    <option value="MAGANG">Anak Magang (NIM)</option>
-                </select><br>
+                <div class="form-group">
+                    <label for="kategori">Kategori:</label>
+                    <select id="kategori" name="kategori" class="form-control">
+                        <option value="PKL">Anak PKL (NISN)</option>
+                        <option value="MAGANG">Anak Magang (NIM)</option>
+                    </select>
+                </div>
 
-                <label>Asal Sekolah / Kampus:</label><br>
-                <input type="text" name="instansi" required placeholder="Nama Sekolah / Kampus"
-                    style="width:100%; margin: 5px 0 15px 0; padding: 8px; box-sizing: border-box;"><br>
+                <div class="form-group">
+                    <label for="instansi">Asal Sekolah / Kampus:</label>
+                    <input type="text" id="instansi" name="instansi" class="form-control" required placeholder="Nama Sekolah / Kampus">
+                </div>
 
-                <button type="submit" class="btn" style="width: 100%;">Simpan Peserta</button>
+                <button type="submit" class="btn btn-success btn-block">Simpan Peserta</button>
             </form>
 
-            <hr style="margin: 20px 0;">
-            <div style="margin-bottom: 15px;">
-                <h5 style="margin-bottom: 5px;">QR Code Presensi:</h5>
-                <img src="{{ url_for('static', filename='qr_absensi.png') }}" alt="QR Presensi"
-                    style="border: 1px solid #ccc; padding: 5px; background: white;" width="160">
-                <p style="color: #6c757d; font-size: 12px; margin-top: 5px;">Scan untuk absen / izin</p>
-            </div>
+            <!-- Bagian QR Code -->
+            <div class="qr-section">
+                <div class="qr-card">
+                    <h5>QR Presensi:</h5>
+                    <img src="{{ url_for('static', filename='qr_absensi.png') }}" alt="QR Presensi" width="120">
+                    <p>Scan untuk absen / izin</p>
+                </div>
 
-            <!-- Kolom QR Biodata -->
-            <div>
-                <h5 style="margin-bottom: 5px;">QR Code Biodata:</h5>
-                <img src="{{ url_for('static', filename='qr_biodata.png') }}" alt="QR Biodata"
-                    style="border: 1px solid #ccc; padding: 5px; background: white;" width="160">
-                <p style="color: #6c757d; font-size: 12px; margin-top: 5px;">Scan untuk isi biodata siswa</p>
+                <div class="qr-card">
+                    <h5>QR Biodata:</h5>
+                    <img src="{{ url_for('static', filename='qr_biodata.png') }}" alt="QR Biodata" width="120">
+                    <p>Scan untuk isi biodata</p>
+                </div>
             </div>
         </div>
 
-        <!-- Tabel Data Peserta & Rekapitulasi -->
+        <!-- Tabel Data Peserta & Rekapitulasi Presensi -->
         <div class="box table-box">
             <h3>Daftar Peserta Terdaftar</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>No. Induk</th>
-                        <th>Nama Lengkap</th>
-                        <th>Kategori</th>
-                        <th>Asal Instansi</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in peserta %}
-                    <tr>
-                        <td>{{ p.nomor_induk }}</td>
-                        <td><b>{{ p.nama }}</b></td>
-                        <td>{{ p.kategori }}</td>
-                        <td>{{ p.instansi }}</td>
-                        <td>
-                            <a href="/admin/peserta/hapus/{{ p.id }}" class="btn btn-danger btn-sm"
-                                onclick="return confirm('Apakah Anda yakin ingin menghapus peserta ini?')">Hapus</a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" style="text-align: center; color: #888;">Belum ada peserta terdaftar.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No. Induk</th>
+                            <th>Nama Lengkap</th>
+                            <th>Kategori</th>
+                            <th>Asal Instansi</th>
+                            <th style="text-align: center;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in peserta %}
+                        <tr>
+                            <td>{{ p.nomor_induk }}</td>
+                            <td><b>{{ p.nama }}</b></td>
+                            <td><span class="badge">{{ p.kategori }}</span></td>
+                            <td>{{ p.instansi }}</td>
+                            <td style="text-align: center;">
+                                <a href="/admin/peserta/hapus/{{ p.id }}" class="btn btn-danger btn-sm"
+                                    onclick="return confirm('Apakah Anda yakin ingin menghapus peserta ini?')">Hapus</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #888;">Belum ada peserta terdaftar.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
-            <h3 style="margin-top: 40px;">Rekapitulasi Kehadiran & Izin</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Waktu</th>
-                        <th>Foto Selfie</th>
-                        <th>Tanda Tangan</th>
-                        <th>Surat Izin</th>
-                        <th>Nama (Kategori)</th>
-                        <th>Status / Keterangan</th>
-                        <th>Koordinat GPS</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in absensi %}
-                    <tr>
-                        <td>{{ a.waktu_masuk.strftime('%Y-%m-%d %H:%M') }}</td>
+            <h3 style="margin-top: 20px;">Rekapitulasi Kehadiran & Izin</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Foto Selfie</th>
+                            <th>Tanda Tangan</th>
+                            <th>Surat Izin</th>
+                            <th>Nama (Kategori)</th>
+                            <th>Status / Keterangan</th>
+                            <th>Koordinat GPS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in absensi %}
+                        <tr>
+                            <td style="white-space: nowrap;">{{ a.waktu_masuk.strftime('%Y-%m-%d %H:%M') }}</td>
 
-                        <!-- Preview Foto Selfie -->
-                        <td>
-                            {% if a.foto_selfie %}
-                            <a href="/static/uploads/{{ a.foto_selfie }}" target="_blank">
-                                <img src="/static/uploads/{{ a.foto_selfie }}" alt="Selfie" class="img-preview">
-                            </a>
-                            {% else %}
-                            <span style="color: #aaa; font-size: 12px;">Tanpa Foto</span>
-                            {% endif %}
-                        </td>
-
-                        <!-- Preview Tanda Tangan Digital -->
-                        <td>
-                            {% if a.tanda_tangan %}
-                            <a href="/static/uploads/{{ a.tanda_tangan }}" target="_blank">
-                                <img src="/static/uploads/{{ a.tanda_tangan }}" alt="TTD" class="img-ttd-preview">
-                            </a>
-                            {% else %}
-                            <span style="color: #aaa; font-size: 12px;">Tanpa TTD</span>
-                            {% endif %}
-                        </td>
-
-                        <!-- Preview Surat Izin / Sakit -->
-                        <td>
-                            {% if a.surat_izin %}
-                            <a href="/static/uploads/{{ a.surat_izin }}" target="_blank">
-                                <img src="/static/uploads/{{ a.surat_izin }}" alt="Surat" class="img-preview">
-                            </a>
-                            {% else %}
-                            <span style="color: #aaa; font-size: 12px;">-</span>
-                            {% endif %}
-                        </td>
-
-                        <td>{{ a.data_peserta.nama }} ({{ a.data_peserta.kategori }})</td>
-                        <td>
-                            <b>[{{ a.status }}]</b><br>
-                            <small>
-                                {% if a.status == 'Pulang Sore' %}
-                                {{ a.jurnal_harian }}
-                                {% elif a.status == 'Hadir Pagi' %}
-                                -
+                            <!-- Preview Foto Selfie -->
+                            <td style="text-align: center;">
+                                {% if a.foto_selfie %}
+                                <a href="/static/uploads/{{ a.foto_selfie }}" target="_blank">
+                                    <img src="/static/uploads/{{ a.foto_selfie }}" alt="Selfie" class="img-preview">
+                                </a>
                                 {% else %}
-                                {{ a.alasan_izin }}
+                                <span style="color: #aaa; font-size: 12px;">Tanpa Foto</span>
                                 {% endif %}
-                            </small>
-                        </td>
-                        <td>
-                            {% if a.latitude and a.longitude %}
-                            <a href="https://maps.google.com/?q={{ a.latitude }},{{ a.longitude }}" target="_blank">
-                                {{ a.latitude }}, {{ a.longitude }}
-                            </a>
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" style="text-align: center; color: #888;">Belum ada data presensi masuk.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </td>
+
+                            <!-- Preview Tanda Tangan Digital -->
+                            <td style="text-align: center;">
+                                {% if a.tanda_tangan %}
+                                <a href="/static/uploads/{{ a.tanda_tangan }}" target="_blank">
+                                    <img src="/static/uploads/{{ a.tanda_tangan }}" alt="TTD" class="img-ttd-preview">
+                                </a>
+                                {% else %}
+                                <span style="color: #aaa; font-size: 12px;">Tanpa TTD</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Preview Surat Izin / Sakit -->
+                            <td style="text-align: center;">
+                                {% if a.surat_izin %}
+                                <a href="/static/uploads/{{ a.surat_izin }}" target="_blank">
+                                    <img src="/static/uploads/{{ a.surat_izin }}" alt="Surat" class="img-preview">
+                                </a>
+                                {% else %}
+                                <span style="color: #aaa; font-size: 12px;">-</span>
+                                {% endif %}
+                            </td>
+
+                            <td>{{ a.data_peserta.nama }} <small class="text-muted">({{ a.data_peserta.kategori }})</small></td>
+                            <td>
+                                <b>[{{ a.status }}]</b><br>
+                                <small style="color: #555;">
+                                    {% if a.status == 'Pulang Sore' %}
+                                    {{ a.jurnal_harian }}
+                                    {% elif a.status == 'Hadir Pagi' %}
+                                    -
+                                    {% else %}
+                                    {{ a.alasan_izin }}
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                {% if a.latitude and a.longitude %}
+                                <a href="https://maps.google.com/?q={{ a.latitude }},{{ a.longitude }}" target="_blank" style="color: var(--primary-color); text-decoration: none;">
+                                    📍 {{ a.latitude }}, {{ a.longitude }}
+                                </a>
+                                {% else %}
+                                <span style="color: #aaa;">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: #888;">Belum ada data presensi masuk.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+
 </body>
 
 </html>

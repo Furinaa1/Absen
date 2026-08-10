@@ -2,3 +2,5 @@ database_absensi.db
 __pycache__/
 venv/
 venv/ static/uploads/*
+.vercel
+.env*

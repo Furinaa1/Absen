@@ -2,7 +2,6 @@ import os
 import base64
 from io import BytesIO
 from datetime import datetime, timedelta, timezone
-import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,8 +10,6 @@ from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import qrcode
-
-# Import openpyxl untuk manipulasi sheet Excel
 from openpyxl import Workbook
 
 from models import db, Admin, Peserta, Absensi
@@ -20,21 +17,55 @@ from models import db, Admin, Peserta, Absensi
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-app.config['SECRET_KEY'] = 'rahasia-absen-pkl-magang'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rahasia-absen-pkl-magang')
 
-# KONFIGURASI DATABASE PERMANEN (Otomatis PostgreSQL di Railway / SQLite di Lokal)
-database_url = os.environ.get("DATABASE_URL")
-if database_url and database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+# --- KONFIGURASI DATABASE ---
+raw_db_url = os.environ.get("DATABASE_URL", "").strip()
 
-app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///database_absensi.db'
+if raw_db_url.startswith("postgres://"):
+    raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+
+if raw_db_url:
+    app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
+else:
+    if os.environ.get("VERCEL") == "1":
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/database_absensi.db'
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database_absensi.db'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = os.path.join('static', 'uploads')
+# Konfigurasi Pool Connection agar koneksi PostgreSQL Railway tahan putus
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
+
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+if IS_VERCEL:
+    UPLOAD_FOLDER = os.path.join('/tmp', 'uploads')
+else:
+    UPLOAD_FOLDER = os.path.join('static', 'uploads')
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db.init_app(app)
+
+# --- SAFE DATABASE INIT FUNCTION ---
+def init_db_safe():
+    """Menjalankan pembuat tabel dan admin default tanpa menyebabkan crash 500"""
+    try:
+        db.create_all()
+        admin_exists = Admin.query.filter_by(username='instruktur').first()
+        if not admin_exists:
+            hashed_pw = generate_password_hash('admin1234')
+            admin_default = Admin(username='instruktur', password=hashed_pw)
+            db.session.add(admin_default)
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database Init Error (Ignored for safety): {e}")
 
 login_manager = LoginManager()
 login_manager.login_view = 'login'
@@ -42,30 +73,47 @@ login_manager.init_app(app)
 
 @login_manager.user_loader
 def load_user(user_id):
-    return Admin.query.get(int(user_id))
+    try:
+        return Admin.query.get(int(user_id))
+    except Exception:
+        return None
 
-# DOMAIN UTAMA 
 DOMAIN_PERMANEN = "https://absen-production-1c49.up.railway.app"
-
-# ZONA WAKTU LOKAL (WITA = UTC + 8)
 WITA = timezone(timedelta(hours=8))
 
+# --- ROUTES ---
 
-# --- ROUTE CETAK BIODATA PESERTA ---
-@app.route('/admin/peserta/cetak/<int:id>')
-@login_required
-def cetak_biodata_peserta(id):
-    peserta = Peserta.query.get_or_404(id)
-    return render_template('cetak_biodata.html', peserta=peserta)
-
-
-# --- ROUTE UTAMA ---
 @app.route('/')
 def index():
-    return redirect(url_for('presensi'))
+    return redirect(url_for('login'))
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Jalankan inisialisasi DB dengan aman saat halaman login diakses
+    init_db_safe()
 
-# --- ROUTE PRESENSI DAN PERIZINAN ---
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        try:
+            admin = Admin.query.filter_by(username=username).first()
+            if admin and check_password_hash(admin.password, password):
+                login_user(admin)
+                return redirect(url_for('admin_dashboard'))
+            else:
+                flash("Username atau password salah!", "danger")
+        except Exception as e:
+            flash(f"Terjadi masalah koneksi database: {str(e)}", "danger")
+            
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 @app.route('/presensi', methods=['GET', 'POST'])
 def presensi():
     if request.method == 'POST':
@@ -83,11 +131,9 @@ def presensi():
             flash("NIM / NISN tidak terdaftar! Periksa kembali.", "danger")
             return redirect(url_for('presensi'))
 
-        # Waktu Lokal WITA
         waktu_sekarang = datetime.now(WITA)
         timestamp_sekarang = int(waktu_sekarang.timestamp())
 
-        # 1. Olah Simpan Foto Selfie
         filename_foto = None
         if status in ['Hadir Pagi', 'Pulang Sore'] and foto_base64 and ',' in foto_base64:
             try:
@@ -100,7 +146,6 @@ def presensi():
             except Exception as e:
                 print(f"Gagal menyimpan foto: {e}")
 
-        # 2. Olah Simpan Tanda Tangan
         filename_ttd = None
         if ttd_base64 and ',' in ttd_base64:
             try:
@@ -113,12 +158,12 @@ def presensi():
             except Exception as e:
                 print(f"Gagal menyimpan TTD: {e}")
 
-        # 3. Olah Simpan File Surat Izin / Sakit
         filename_surat = None
         if status not in ['Hadir Pagi', 'Pulang Sore']:
             file_surat = request.files.get('surat_izin')
             if file_surat and file_surat.filename != '':
-                filename_surat = f"surat_{nomor_induk}_{timestamp_sekarang}.jpg"
+                ext = file_surat.filename.rsplit('.', 1)[-1].lower() if '.' in file_surat.filename else 'jpg'
+                filename_surat = f"surat_{nomor_induk}_{timestamp_sekarang}.{ext}"
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename_surat)
                 file_surat.save(filepath)
 
@@ -132,7 +177,7 @@ def presensi():
             surat_izin=filename_surat,  
             latitude=float(lat) if lat and lat != '' else None,
             longitude=float(long) if long and long != '' else None,
-            waktu_masuk=waktu_sekarang.replace(tzinfo=None) # Disimpan ke DB tanpa timezone offset agar kompatibel dengan SQLite/Postgres
+            waktu_masuk=waktu_sekarang.replace(tzinfo=None)
         )
         db.session.add(absen_baru)
         db.session.commit()
@@ -142,16 +187,13 @@ def presensi():
 
     return render_template('presensi.html')
 
-
-# --- ROUTE FORM & PENYIMPANAN BIODATA ---
 @app.route('/biodata', methods=['GET', 'POST'])
 def biodata():
     if request.method == 'POST':
         nomor_induk = request.form.get('nomor_induk', '').strip()
-        
         peserta = Peserta.query.filter_by(nomor_induk=nomor_induk).first()
         if not peserta:
-            flash('NIM / NISN belum terdaftar di sistem admin! Silakan hubungi pembimbing.', 'danger')
+            flash('NIM / NISN belum terdaftar di sistem admin!', 'danger')
             return redirect(url_for('biodata'))
         
         peserta.nama = request.form.get('nama')
@@ -177,6 +219,30 @@ def biodata():
 
     return render_template('biodata.html')
 
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    list_peserta = Peserta.query.all()
+    tanggal_mulai = request.args.get('tanggal_mulai')
+    tanggal_selesai = request.args.get('tanggal_selesai')
+    
+    query = Absensi.query
+    if tanggal_mulai:
+        try:
+            dt_mulai = datetime.strptime(tanggal_mulai, '%Y-%m-%d')
+            query = query.filter(Absensi.waktu_masuk >= dt_mulai)
+        except ValueError:
+            pass
+            
+    if tanggal_selesai:
+        try:
+            dt_selesai = datetime.strptime(tanggal_selesai + ' 23:59:59', '%Y-%m-%d %H:%M:%S')
+            query = query.filter(Absensi.waktu_masuk <= dt_selesai)
+        except ValueError:
+            pass
+            
+    rekap_absensi = query.order_by(Absensi.waktu_masuk.desc()).all()
+    return render_template('admin_dashboard.html', peserta=list_peserta, absensi=rekap_absensi, tanggal_mulai=tanggal_mulai, tanggal_selesai=tanggal_selesai)
 
 @app.route('/admin/biodata-peserta')
 @login_required
@@ -184,6 +250,56 @@ def admin_biodata_peserta():
     all_peserta = Peserta.query.all()
     return render_template('admin_biodata_peserta.html', peserta_list=all_peserta)
 
+@app.route('/admin/peserta')
+@login_required
+def admin_peserta():
+    all_peserta = Peserta.query.all()
+    return render_template('admin_peserta.html', peserta_list=all_peserta)
+
+@app.route('/admin/peserta/cetak/<int:id>')
+@login_required
+def cetak_biodata_peserta(id):
+    peserta = Peserta.query.get_or_404(id)
+    return render_template('cetak_biodata.html', peserta=peserta)
+
+@app.route('/admin/peserta/tambah', methods=['POST'])
+@login_required
+def tambah_peserta():
+    nama = request.form.get('nama')
+    nomor_induk = request.form.get('nomor_induk', '').strip()
+    kategori = request.form.get('kategori')
+    instansi = request.form.get('instansi')
+    
+    if Peserta.query.filter_by(nomor_induk=nomor_induk).first():
+        flash("NIM/NISN sudah terdaftar!", "warning")
+    else:
+        peserta_baru = Peserta(nama=nama, nomor_induk=nomor_induk, kategori=kategori, instansi=instansi)
+        db.session.add(peserta_baru)
+        db.session.commit()
+        flash("Peserta berhasil ditambahkan!", "success")
+        
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/peserta/hapus/<int:id>')
+@login_required
+def hapus_peserta(id):
+    peserta = Peserta.query.get_or_404(id)
+    absensi_records = Absensi.query.filter_by(peserta_id=peserta.id).all()
+    for absensi in absensi_records:
+        for file_attr in [absensi.foto_selfie, absensi.tanda_tangan, absensi.surat_izin]:
+            if file_attr:
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_attr)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Gagal menghapus file {file_path}: {e}")
+        db.session.delete(absensi)
+
+    db.session.delete(peserta)
+    db.session.commit()
+    flash("Data peserta berhasil dihapus!", "success")
+    return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/export-word-biodata')
 @login_required
@@ -253,13 +369,10 @@ def export_word_biodata():
         download_name='Rekap_Biodata_Peserta.docx'
     )
 
-
 @app.route('/export_excel')
 @login_required
 def export_excel():
     list_peserta = Peserta.query.all()
-    file_path = 'rekap_absensi_per_peserta.xlsx'
-    
     base_url = DOMAIN_PERMANEN
     
     wb = Workbook()
@@ -271,7 +384,7 @@ def export_excel():
         ws.append(['Waktu Masuk', 'Nama Peserta', 'Nomor Induk', 'Kategori', 'Instansi', 'Status', 'Keterangan', 'GPS', 'Foto', 'TTD'])
     else:
         for p in list_peserta:
-            nama_sheet = "".join(c for c in p.nama if c.isalnum() or c in (' ', '_'))[:30].strip()
+            nama_sheet = "".join(c for c in (p.nama or "") if c.isalnum() or c in (' ', '_'))[:30].strip()
             if not nama_sheet:
                 nama_sheet = f"Peserta_{p.id}"
             
@@ -295,9 +408,16 @@ def export_excel():
                 row_data = [waktu_str, p.nama or '', p.nomor_induk or '', p.kategori or '', p.instansi or '', a.status, keterangan or '', koordinat, link_foto, link_ttd]
                 ws.append(row_data)
 
-    wb.save(file_path)
-    return send_file(file_path, as_attachment=True)
+    file_stream = BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
 
+    return send_file(
+        file_stream,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='rekap_absensi_per_peserta.xlsx'
+    )
 
 @app.route('/api/get-nama/<nomor_induk>')
 def get_nama(nomor_induk):
@@ -307,125 +427,23 @@ def get_nama(nomor_induk):
     else:
         return jsonify({"success": False, "message": "NIM / NISN tidak ditemukan!"})
 
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        admin = Admin.query.filter_by(username=username).first()
-        
-        if admin and check_password_hash(admin.password, password):
-            login_user(admin)
-            return redirect(url_for('admin_dashboard'))
-        else:
-            flash("Username atau password salah!", "danger")
-            
-    return render_template('login.html')
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
-
-@app.route('/admin')
-@login_required
-def admin_dashboard():
-    list_peserta = Peserta.query.all()
-    tanggal_mulai = request.args.get('tanggal_mulai')
-    tanggal_selesai = request.args.get('tanggal_selesai')
-    
-    query = Absensi.query
-    if tanggal_mulai:
-        try:
-            query = query.filter(Absensi.waktu_masuk >= datetime.strptime(tanggal_mulai, '%Y-%m-%d'))
-        except ValueError:
-            pass
-            
-    if tanggal_selesai:
-        try:
-            query = query.filter(Absensi.waktu_masuk <= datetime.strptime(tanggal_selesai + ' 23:59:59', '%Y-%m-%d %H:%M:%S'))
-        except ValueError:
-            pass
-            
-    rekap_absensi = query.order_by(Absensi.waktu_masuk.desc()).all()
-    return render_template('admin_dashboard.html', peserta=list_peserta, absensi=rekap_absensi, tanggal_mulai=tanggal_mulai, tanggal_selesai=tanggal_selesai)
-
-
-@app.route('/admin/peserta')
-@login_required
-def admin_peserta():
-    all_peserta = Peserta.query.all()
-    return render_template('admin_peserta.html', peserta_list=all_peserta)
-
-
-@app.route('/admin/peserta/tambah', methods=['POST'])
-@login_required
-def tambah_peserta():
-    nama = request.form.get('nama')
-    nomor_induk = request.form.get('nomor_induk', '').strip()
-    kategori = request.form.get('kategori')
-    instansi = request.form.get('instansi')
-    
-    if Peserta.query.filter_by(nomor_induk=nomor_induk).first():
-        flash("NIM/NISN sudah terdaftar!", "warning")
-    else:
-        peserta_baru = Peserta(nama=nama, nomor_induk=nomor_induk, kategori=kategori, instansi=instansi)
-        db.session.add(peserta_baru)
-        db.session.commit()
-        flash("Peserta berhasil ditambahkan!", "success")
-        
-    return redirect(url_for('admin_dashboard'))
-
-@app.route('/admin/peserta/hapus/<int:id>')
-@login_required
-def hapus_peserta(id):
-    peserta = Peserta.query.get_or_404(id)
-    db.session.delete(peserta)
-    db.session.commit()
-    flash("Data peserta berhasil dihapus!", "success")
-    return redirect(url_for('admin_dashboard'))
-
-
 @app.route('/admin/generate-qr')
 @login_required
 def generate_qr():
     domain_aktif = DOMAIN_PERMANEN
-
-    os.makedirs('static', exist_ok=True)
+    qr_dir = '/tmp' if IS_VERCEL else 'static'
+    os.makedirs(qr_dir, exist_ok=True)
     
     url_presensi = f"{domain_aktif}/presensi"
     qr_presensi = qrcode.make(url_presensi)
-    qr_presensi.save('static/qr_absensi.png')
+    qr_presensi.save(os.path.join(qr_dir, 'qr_absensi.png'))
 
     url_biodata = f"{domain_aktif}/biodata"
     qr_biodata = qrcode.make(url_biodata)
-    qr_biodata.save('static/qr_biodata.png')
+    qr_biodata.save(os.path.join(qr_dir, 'qr_biodata.png'))
 
     flash(f"QR Code berhasil diperbarui menggunakan domain: {domain_aktif}", "success")
     return redirect(url_for('admin_dashboard'))
 
-def init_db():
-    with app.app_context():
-        db.create_all()   
-        if not Admin.query.filter_by(username='instruktur').first():
-            hashed_pw = generate_password_hash('admin1234')
-            admin_default = Admin(username='instruktur', password=hashed_pw)
-            db.session.add(admin_default)
-            db.session.commit()
-            print("Akun admin default dibuat!")
-
-        # Otomatis buat ulang QR Code saat aplikasi boot di server (Railway)
-        os.makedirs('static', exist_ok=True)
-        
-        qr_presensi = qrcode.make(f"{DOMAIN_PERMANEN}/presensi")
-        qr_presensi.save('static/qr_absensi.png')
-        
-        qr_biodata = qrcode.make(f"{DOMAIN_PERMANEN}/biodata")
-        qr_biodata.save('static/qr_biodata.png')
-        print("QR Code otomatis di-generate ke domain Railway permanen!")
-
 if __name__ == '__main__':
-    init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
