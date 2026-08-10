@@ -393,7 +393,7 @@
                     <tbody>
                         {% for a in absensi %}
                         <tr>
-                            <td style="white-space: nowrap;">{{ a.waktu_masuk.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td style="white-space: nowrap;">{{ a.waktu_masuk.strftime('%Y-%m-%d %H:%M') if a.waktu_masuk else '-' }}</td>
 
                             <!-- Preview Foto Selfie -->
                             <td style="text-align: center;">
@@ -428,7 +428,17 @@
                                 {% endif %}
                             </td>
 
-                            <td>{{ a.data_peserta.nama }} <small class="text-muted">({{ a.data_peserta.kategori }})</small></td>
+                            <!-- Nama & Kategori Peserta (Diperbaiki agar Aman dari UndefinedError) -->
+                            <td>
+                                {% if a.peserta %}
+                                    {{ a.peserta.nama }} <small class="text-muted">({{ a.peserta.kategori }})</small>
+                                {% elif a.data_peserta %}
+                                    {{ a.data_peserta.nama }} <small class="text-muted">({{ a.data_peserta.kategori }})</small>
+                                {% else %}
+                                    <span class="text-muted">Peserta Tidak Ditemukan</span>
+                                {% endif %}
+                            </td>
+
                             <td>
                                 <b>[{{ a.status }}]</b><br>
                                 <small style="color: #555;">
