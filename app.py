@@ -28,8 +28,8 @@ cloudinary.config(
     api_secret=os.environ.get("CLOUDINARY_API_SECRET")
 )
 
-# --- KONFIGURASI DATABASE (MENGGUNAKAN PG8000 SECARA MUTLAK) ---
-raw_db_url = os.environ.get("DATABASE_URL", "").strip()
+# --- KONFIGURASI DATABASE (MENGGUNAKAN CUSTOM_DB_URL & PG8000) ---
+raw_db_url = os.environ.get("CUSTOM_DB_URL", "").strip() or os.environ.get("DATABASE_URL", "").strip()
 
 if raw_db_url:
     if raw_db_url.startswith("postgres://"):
