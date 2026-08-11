@@ -21,7 +21,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rahasia-absen-pkl-magang')
 
-# --- KONFIGURASI CLOUDINARY ---
+# --- KONFIGURASI CLOUDINARY (Membaca dari Environment Variables Vercel) ---
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
     api_key=os.environ.get("CLOUDINARY_API_KEY"),
@@ -175,12 +175,10 @@ def presensi():
 
         waktu_sekarang = datetime.now(WITA)
 
-        # Proses upload foto selfie ke Cloudinary (DIHAPUS BATASAN KONDISI STATUS)
         url_foto = None
         if foto_base64:
             url_foto = upload_to_cloudinary(foto_base64, folder_name="selfie_peserta")
 
-        # Proses upload tanda tangan ke Cloudinary (DIHAPUS BATASAN KONDISI STATUS)
         url_ttd = None
         if ttd_base64:
             url_ttd = upload_to_cloudinary(ttd_base64, folder_name="tanda_tangan")
@@ -324,6 +322,15 @@ def hapus_peserta(id):
     db.session.delete(peserta)
     db.session.commit()
     flash("Data peserta beserta absensinya berhasil dihapus!", "success")
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/absensi/hapus/<int:id>')
+@login_required
+def hapus_absensi(id):
+    absensi = Absensi.query.get_or_404(id)
+    db.session.delete(absensi)
+    db.session.commit()
+    flash("Data riwayat absensi berhasil dihapus!", "success")
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/export-word-biodata')
