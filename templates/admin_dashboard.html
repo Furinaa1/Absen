@@ -398,9 +398,15 @@
                             <!-- Preview Foto Selfie -->
                             <td style="text-align: center;">
                                 {% if a.foto_selfie %}
-                                <a href="{{ url_for('uploaded_file', filename=a.foto_selfie) }}" target="_blank">
-                                    <img src="{{ url_for('uploaded_file', filename=a.foto_selfie) }}" alt="Selfie" class="img-preview">
-                                </a>
+                                    {% if a.foto_selfie.startswith('http') %}
+                                        <a href="{{ a.foto_selfie }}" target="_blank">
+                                            <img src="{{ a.foto_selfie }}" alt="Selfie" class="img-preview">
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ url_for('uploaded_file', filename=a.foto_selfie) }}" target="_blank">
+                                            <img src="{{ url_for('uploaded_file', filename=a.foto_selfie) }}" alt="Selfie" class="img-preview">
+                                        </a>
+                                    {% endif %}
                                 {% else %}
                                 <span style="color: #aaa; font-size: 12px;">Tanpa Foto</span>
                                 {% endif %}
@@ -409,9 +415,15 @@
                             <!-- Preview Tanda Tangan Digital -->
                             <td style="text-align: center;">
                                 {% if a.tanda_tangan %}
-                                <a href="{{ url_for('uploaded_file', filename=a.tanda_tangan) }}" target="_blank">
-                                    <img src="{{ url_for('uploaded_file', filename=a.tanda_tangan) }}" alt="TTD" class="img-ttd-preview">
-                                </a>
+                                    {% if a.tanda_tangan.startswith('http') %}
+                                        <a href="{{ a.tanda_tangan }}" target="_blank">
+                                            <img src="{{ a.tanda_tangan }}" alt="TTD" class="img-ttd-preview">
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ url_for('uploaded_file', filename=a.tanda_tangan) }}" target="_blank">
+                                            <img src="{{ url_for('uploaded_file', filename=a.tanda_tangan) }}" alt="TTD" class="img-ttd-preview">
+                                        </a>
+                                    {% endif %}
                                 {% else %}
                                 <span style="color: #aaa; font-size: 12px;">Tanpa TTD</span>
                                 {% endif %}
@@ -420,9 +432,15 @@
                             <!-- Preview Surat Izin / Sakit -->
                             <td style="text-align: center;">
                                 {% if a.surat_izin %}
-                                <a href="{{ url_for('uploaded_file', filename=a.surat_izin) }}" target="_blank">
-                                    <img src="{{ url_for('uploaded_file', filename=a.surat_izin) }}" alt="Surat" class="img-preview">
-                                </a>
+                                    {% if a.surat_izin.startswith('http') %}
+                                        <a href="{{ a.surat_izin }}" target="_blank">
+                                            <img src="{{ a.surat_izin }}" alt="Surat" class="img-preview">
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ url_for('uploaded_file', filename=a.surat_izin) }}" target="_blank">
+                                            <img src="{{ url_for('uploaded_file', filename=a.surat_izin) }}" alt="Surat" class="img-preview">
+                                        </a>
+                                    {% endif %}
                                 {% else %}
                                 <span style="color: #aaa; font-size: 12px;">-</span>
                                 {% endif %}

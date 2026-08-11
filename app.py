@@ -101,10 +101,19 @@ def get_current_domain():
         
     return "https://absen-4goursy9v-kunii.vercel.app"
 
-# --- HELPER UPLOAD CLOUDINARY ---
+# --- HELPER UPLOAD CLOUDINARY YANG DISEMPURNAKAN ---
 def upload_to_cloudinary(file_data, folder_name="absensi_pkl"):
     """Mengunggah file (baik base64 string, byte, atau file object) ke Cloudinary dan mengembalikan secure URL."""
     try:
+        if not file_data:
+            return None
+            
+        # Jika data berupa string base64 dari JavaScript (canvas/kamera)
+        if isinstance(file_data, str) and file_data.startswith('data:image'):
+            # Pisahkan header data URI dengan string base64 murninya
+            header, encoded = file_data.split(",", 1)
+            file_data = base64.b64decode(encoded)
+
         response = cloudinary.uploader.upload(file_data, folder=folder_name)
         return response.get("secure_url")
     except Exception as e:
@@ -197,9 +206,9 @@ def presensi():
             status=status,
             jurnal_harian=jurnal if status == 'Pulang Sore' else None,
             alasan_izin=alasan_izin if status not in ['Hadir Pagi', 'Pulang Sore'] else None,
-            foto_selfie=url_foto,       # Menyimpan URL Cloudinary secara permanen
-            tanda_tangan=url_ttd,       # Menyimpan URL Cloudinary secara permanen
-            surat_izin=url_surat,       # Menyimpan URL Cloudinary secara permanen
+            foto_selfie=url_foto,      # Menyimpan URL Cloudinary secara permanen
+            tanda_tangan=url_ttd,      # Menyimpan URL Cloudinary secara permanen
+            surat_izin=url_surat,      # Menyimpan URL Cloudinary secara permanen
             latitude=lat_float,
             longitude=long_float,
             waktu_masuk=waktu_sekarang.replace(tzinfo=None)

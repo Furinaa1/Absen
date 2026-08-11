@@ -12,11 +12,13 @@
             border-radius: 8px;
             background-color: #f8f9fa;
             touch-action: none;
+            position: relative;
         }
         canvas#signature-pad {
             width: 100%;
             height: 180px;
             border-radius: 8px;
+            cursor: crosshair;
         }
         #webcam-video, #webcam-preview {
             width: 100%;
@@ -227,7 +229,6 @@
         .catch((err) => { console.warn("Kamera tidak diizinkan/tersedia"); });
 
     btnAmbilFoto.addEventListener('click', function() {
-        // Validasi apakah video sudah siap streaming
         if (video.videoWidth === 0 || video.videoHeight === 0) {
             alert("Kamera belum siap, mohon tunggu beberapa detik lalu coba lagi.");
             return;
@@ -274,7 +275,7 @@
 
     document.getElementById('clear-signature').addEventListener('click', () => signaturePad.clear());
 
-    // Validasi Submit Form
+    // Validasi & Sinkronisasi Submit Form
     document.getElementById('formPresensi').addEventListener('submit', function (e) {
         if ((radioHadirPagi.checked || radioPulangSore.checked) && !inputFotoBase64.value) {
             alert("Harap ambil foto selfie terlebih dahulu!");
@@ -288,6 +289,7 @@
             return false;
         }
 
+        // Masukkan data base64 tanda tangan ke input tersembunyi sebelum form terkirim
         document.getElementById('ttd_base64').value = signaturePad.toDataURL('image/png');
     });
 </script>
