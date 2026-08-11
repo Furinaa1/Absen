@@ -28,13 +28,13 @@ cloudinary.config(
     api_secret=os.environ.get("CLOUDINARY_API_SECRET")
 )
 
-# --- KONFIGURASI DATABASE (MENGGUNAKAN PG8000) ---
+# --- KONFIGURASI DATABASE (MENGGUNAKAN PG8000 SECARA MUTLAK) ---
 raw_db_url = os.environ.get("DATABASE_URL", "").strip()
 
 if raw_db_url:
     if raw_db_url.startswith("postgres://"):
         raw_db_url = raw_db_url.replace("postgres://", "postgresql+pg8000://", 1)
-    elif raw_db_url.startswith("postgresql://"):
+    elif raw_db_url.startswith("postgresql://") and not raw_db_url.startswith("postgresql+pg8000://"):
         raw_db_url = raw_db_url.replace("postgresql://", "postgresql+pg8000://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
 else:
