@@ -11,8 +11,6 @@ from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import qrcode
 from openpyxl import Workbook
-import cloudinary
-import cloudinary.uploader
 
 from models import db, Admin, Peserta, Absensi
 
@@ -20,13 +18,6 @@ app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'rahasia-absen-pkl-magang')
-
-# --- KONFIGURASI CLOUDINARY (Membaca dari Environment Variables Vercel) ---
-cloudinary.config(
-    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.environ.get("CLOUDINARY_API_KEY"),
-    api_secret=os.environ.get("CLOUDINARY_API_SECRET")
-)
 
 # --- KONFIGURASI DATABASE (MENGGUNAKAN CUSTOM_DB_URL & PG8000) ---
 raw_db_url = os.environ.get("CUSTOM_DB_URL", "").strip() or os.environ.get("DATABASE_URL", "").strip()
@@ -102,24 +93,6 @@ def get_current_domain():
         
     return "https://absen-4goursy9v-kunii.vercel.app"
 
-# --- HELPER UPLOAD CLOUDINARY YANG DISEMPURNAKAN ---
-def upload_to_cloudinary(file_data, folder_name="absensi_pkl"):
-    """Mengunggah file (baik base64 string, byte, atau file object) ke Cloudinary dan mengembalikan secure URL."""
-    try:
-        if not file_data:
-            return None
-            
-        # Jika data berupa string base64 dari JavaScript (canvas/kamera)
-        if isinstance(file_data, str) and file_data.startswith('data:image'):
-            header, encoded = file_data.split(",", 1)
-            file_data = base64.b64decode(encoded)
-
-        response = cloudinary.uploader.upload(file_data, folder=folder_name)
-        return response.get("secure_url")
-    except Exception as e:
-        print(f"Gagal upload ke Cloudinary: {e}")
-        return None
-
 # --- ROUTES ---
 
 @app.route('/')
@@ -165,8 +138,17 @@ def presensi():
         alasan_izin = request.form.get('alasan_izin', '').strip()
         lat = request.form.get('latitude')
         long = request.form.get('longitude')
+        
+        # Ambil langsung data base64 string dari frontend/kamera
         foto_base64 = request.form.get('foto_base64')
         ttd_base64 = request.form.get('ttd_base64')
+
+        # Tangkap file surat izin jika ada, ubah langsung jadi base64 agar aman di serverless Vercel
+        url_surat = None
+        file_surat = request.files.get('surat_izin')
+        if file_surat and file_surat.filename != '':
+            surat_bytes = file_surat.read()
+            url_surat = "data:" + file_surat.mimetype + ";base64," + base64.b64encode(surat_bytes).decode('utf-8')
 
         peserta = Peserta.query.filter_by(nomor_induk=nomor_induk).first()
         if not peserta:
@@ -174,20 +156,6 @@ def presensi():
             return redirect(url_for('presensi'))
 
         waktu_sekarang = datetime.now(WITA)
-
-        url_foto = None
-        if foto_base64:
-            url_foto = upload_to_cloudinary(foto_base64, folder_name="selfie_peserta")
-
-        url_ttd = None
-        if ttd_base64:
-            url_ttd = upload_to_cloudinary(ttd_base64, folder_name="tanda_tangan")
-
-        url_surat = None
-        if status not in ['Hadir Pagi', 'Pulang Sore']:
-            file_surat = request.files.get('surat_izin')
-            if file_surat and file_surat.filename != '':
-                url_surat = upload_to_cloudinary(file_surat, folder_name="surat_izin")
 
         lat_float = None
         long_float = None
@@ -197,13 +165,14 @@ def presensi():
         except ValueError:
             pass
 
+        # Simpan langsung string base64 ke dalam database (kolom foto_selfie, tanda_tangan, surat_izin)
         absen_baru = Absensi(
             peserta_id=peserta.id,
             status=status,
             jurnal_harian=jurnal if status == 'Pulang Sore' else None,
             alasan_izin=alasan_izin if status not in ['Hadir Pagi', 'Pulang Sore'] else None,
-            foto_selfie=url_foto,
-            tanda_tangan=url_ttd,
+            foto_selfie=foto_base64,
+            tanda_tangan=ttd_base64,
             surat_izin=url_surat,
             latitude=lat_float,
             longitude=long_float,
@@ -423,9 +392,6 @@ def export_excel():
             headers = ['Waktu Masuk', 'Nama Peserta', 'Nomor Induk', 'Kategori', 'Instansi', 'Status', 'Keterangan / Jurnal / Alasan', 'Koordinat GPS', 'Foto Selfie', 'Tanda Tangan']
             ws.append(headers)
             
-            ws.column_dimensions['I'].width = 35
-            ws.column_dimensions['J'].width = 35
-            
             data_absensi_peserta = Absensi.query.filter_by(peserta_id=p.id).order_by(Absensi.waktu_masuk.desc()).all()
             
             for a in data_absensi_peserta:
@@ -433,8 +399,9 @@ def export_excel():
                 keterangan = a.jurnal_harian if a.status == 'Pulang Sore' else a.alasan_izin
                 koordinat = f"{a.latitude}, {a.longitude}" if a.latitude and a.longitude else ''
                 
-                link_foto = f'=HYPERLINK("{a.foto_selfie}", "Lihat Foto")' if a.foto_selfie else '-'
-                link_ttd = f'=HYPERLINK("{a.tanda_tangan}", "Lihat TTD")' if a.tanda_tangan else '-'
+                # Karena base64 terlalu panjang untuk excel hyperlink, tampilkan informasi teks penanda data
+                link_foto = 'Ada (Base64 di DB)' if a.foto_selfie else '-'
+                link_ttd = 'Ada (Base64 di DB)' if a.tanda_tangan else '-'
                 
                 row_data = [waktu_str, p.nama or '', p.nomor_induk or '', p.kategori or '', p.instansi or '', a.status, keterangan or '', koordinat, link_foto, link_ttd]
                 ws.append(row_data)
