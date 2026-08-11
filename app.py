@@ -28,13 +28,14 @@ cloudinary.config(
     api_secret=os.environ.get("CLOUDINARY_API_SECRET")
 )
 
-# --- KONFIGURASI DATABASE ---
+# --- KONFIGURASI DATABASE (MENGGUNAKAN PG8000) ---
 raw_db_url = os.environ.get("DATABASE_URL", "").strip()
 
-if raw_db_url.startswith("postgres://"):
-    raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
-
 if raw_db_url:
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql+pg8000://", 1)
+    elif raw_db_url.startswith("postgresql://"):
+        raw_db_url = raw_db_url.replace("postgresql://", "postgresql+pg8000://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = raw_db_url
 else:
     if os.environ.get("VERCEL") == "1":
@@ -110,7 +111,6 @@ def upload_to_cloudinary(file_data, folder_name="absensi_pkl"):
             
         # Jika data berupa string base64 dari JavaScript (canvas/kamera)
         if isinstance(file_data, str) and file_data.startswith('data:image'):
-            # Pisahkan header data URI dengan string base64 murninya
             header, encoded = file_data.split(",", 1)
             file_data = base64.b64decode(encoded)
 
@@ -152,7 +152,6 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- ROUTE UNTUK MENGAKSES FILE LOKAL/FALLBACK (QR Code, dll) ---
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -176,17 +175,14 @@ def presensi():
 
         waktu_sekarang = datetime.now(WITA)
 
-        # Upload Foto Selfie ke Cloudinary
         url_foto = None
         if status in ['Hadir Pagi', 'Pulang Sore'] and foto_base64:
             url_foto = upload_to_cloudinary(foto_base64, folder_name="selfie_peserta")
 
-        # Upload Tanda Tangan ke Cloudinary
         url_ttd = None
         if ttd_base64:
             url_ttd = upload_to_cloudinary(ttd_base64, folder_name="tanda_tangan")
 
-        # Upload Surat Izin ke Cloudinary (jika ada)
         url_surat = None
         if status not in ['Hadir Pagi', 'Pulang Sore']:
             file_surat = request.files.get('surat_izin')
@@ -206,9 +202,9 @@ def presensi():
             status=status,
             jurnal_harian=jurnal if status == 'Pulang Sore' else None,
             alasan_izin=alasan_izin if status not in ['Hadir Pagi', 'Pulang Sore'] else None,
-            foto_selfie=url_foto,      # Menyimpan URL Cloudinary secara permanen
-            tanda_tangan=url_ttd,      # Menyimpan URL Cloudinary secara permanen
-            surat_izin=url_surat,      # Menyimpan URL Cloudinary secara permanen
+            foto_selfie=url_foto,
+            tanda_tangan=url_ttd,
+            surat_izin=url_surat,
             latitude=lat_float,
             longitude=long_float,
             waktu_masuk=waktu_sekarang.replace(tzinfo=None)
@@ -428,7 +424,6 @@ def export_excel():
                 keterangan = a.jurnal_harian if a.status == 'Pulang Sore' else a.alasan_izin
                 koordinat = f"{a.latitude}, {a.longitude}" if a.latitude and a.longitude else ''
                 
-                # Menggunakan URL langsung dari Cloudinary untuk Excel
                 link_foto = f'=HYPERLINK("{a.foto_selfie}", "Lihat Foto")' if a.foto_selfie else '-'
                 link_ttd = f'=HYPERLINK("{a.tanda_tangan}", "Lihat TTD")' if a.tanda_tangan else '-'
                 
