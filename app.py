@@ -175,10 +175,12 @@ def presensi():
 
         waktu_sekarang = datetime.now(WITA)
 
+        # Proses upload foto selfie ke Cloudinary jika ada
         url_foto = None
-        if status in ['Hadir Pagi', 'Pulang Sore'] and foto_base64:
+        if foto_base64:
             url_foto = upload_to_cloudinary(foto_base64, folder_name="selfie_peserta")
 
+        # Proses upload tanda tangan ke Cloudinary jika ada
         url_ttd = None
         if ttd_base64:
             url_ttd = upload_to_cloudinary(ttd_base64, folder_name="tanda_tangan")
